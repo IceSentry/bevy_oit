@@ -2,7 +2,10 @@ use bevy::{
     asset::load_internal_asset,
     ecs::{
         query::ROQueryItem,
-        system::{lifetimeless::SRes, SystemParamItem},
+        system::{
+            lifetimeless::{Read, SRes},
+            SystemParamItem,
+        },
     },
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
@@ -11,7 +14,9 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
-        extract_component::{ComponentUniforms, ExtractComponent, ExtractComponentPlugin},
+        extract_component::{
+            ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
+        },
         mesh::InnerMeshVertexBufferLayout,
         render_asset::RenderAssets,
         render_phase::{
@@ -64,7 +69,6 @@ impl Plugin for OitMeshPlugin {
                 extract_phase.in_schedule(ExtractSchedule),
                 queue_bind_group.in_set(RenderSet::Queue),
                 queue_oit_mesh.in_set(RenderSet::Queue),
-                prepare.in_set(RenderSet::Prepare),
             ));
     }
 }
@@ -102,17 +106,17 @@ pub struct SetOitBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOitBindGroup<I> {
     type Param = SRes<OitBindGroup>;
     type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ItemWorldQuery = Read<DynamicUniformIndex<OitMaterial>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        _entity: ROQueryItem<'w, Self::ItemWorldQuery>,
+        entity: ROQueryItem<'w, Self::ItemWorldQuery>,
         oit_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(I, &oit_bind_group.into_inner().value, &[]);
+        pass.set_bind_group(I, &oit_bind_group.into_inner().value, &[entity.index()]);
         RenderCommandResult::Success
     }
 }
@@ -130,11 +134,16 @@ pub struct OitMaterial {
     pub base_color: Color,
 }
 
+#[derive(Component, Default, Clone, Copy, ExtractComponent, ShaderType)]
+pub struct OitSettings {
+    pub oit_layers: u32,
+}
+
 #[derive(Resource)]
 pub struct OitPipeline {
     mesh_pipeline: MeshPipeline,
     layout: BindGroupLayout,
-    counter_buffer: StorageBuffer<i32>,
+    pub counter_buffer: StorageBuffer<Vec<i32>>,
     pub layers: StorageBuffer<Vec<Vec4>>,
 }
 
@@ -148,11 +157,11 @@ impl FromWorld for OitPipeline {
             entries: &bind_group_layout_entries![
                 0 => (ShaderStages::FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
+                    has_dynamic_offset: true,
+                    min_binding_size: Some(OitMaterial::min_size()),
                 }),
                 1 => (ShaderStages::FRAGMENT, BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: false },
+                    ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 }),
@@ -161,11 +170,16 @@ impl FromWorld for OitPipeline {
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 }),
+                3 => (ShaderStages::FRAGMENT, BindingType::Buffer {
+                    ty: BufferBindingType::Storage { read_only: false },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                }),
             ],
         });
 
         let mut counter_buffer = StorageBuffer::default();
-        counter_buffer.set(0);
+        counter_buffer.set(vec![0; WINDOW_WIDTH * WINDOW_HEIGHT]);
         counter_buffer.write_buffer(render_device, render_queue);
 
         let mut layers = StorageBuffer::default();
@@ -235,8 +249,13 @@ pub fn queue_bind_group(
     pipeline: Res<OitPipeline>,
     render_device: Res<RenderDevice>,
     material_uniforms: Res<ComponentUniforms<OitMaterial>>,
+    settings_uniforms: Res<ComponentUniforms<OitSettings>>,
 ) {
     let Some(material_binding) = material_uniforms.uniforms().binding() else {
+        return;
+    };
+
+    let Some(settings_binding) = settings_uniforms.uniforms().binding() else {
         return;
     };
 
@@ -245,8 +264,9 @@ pub fn queue_bind_group(
         layout: &pipeline.layout,
         entries: &bind_group_entries![
             0 => material_binding.clone(),
-            1 => pipeline.counter_buffer.binding().unwrap(),
-            2 => pipeline.layers.binding().unwrap(),
+            1 => settings_binding.clone(),
+            2 => pipeline.counter_buffer.binding().unwrap(),
+            3 => pipeline.layers.binding().unwrap(),
         ],
     });
 
@@ -292,19 +312,9 @@ pub fn queue_oit_mesh(
                 entity,
                 pipeline,
                 draw_function,
+                // TODO remove this, we don't need to sort
                 distance: inv_view_row_2.dot(mesh_uniform.transform.col(3)),
             });
         }
     }
-}
-
-fn prepare(
-    mut pipeline: ResMut<OitPipeline>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-) {
-    pipeline.counter_buffer.set(0);
-    pipeline
-        .counter_buffer
-        .write_buffer(&render_device, &render_queue);
 }
