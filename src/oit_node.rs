@@ -1,8 +1,9 @@
 use bevy::{
-    prelude::{QueryState, World},
+    ecs::query::QueryItem,
+    prelude::World,
     render::{
         camera::ExtractedCamera,
-        render_graph::{Node, RenderGraphContext, SlotInfo, SlotType},
+        render_graph::{NodeRunError, RenderGraphContext},
         render_phase::RenderPhase,
         render_resource::{
             LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor,
@@ -12,52 +13,27 @@ use bevy::{
     },
 };
 
-use crate::oit_phase::Oit;
+use crate::{
+    oit_phase::Oit,
+    utils::view_node::{ViewNode, ViewNodeRunner},
+};
 
-pub struct OitNode {
-    query: QueryState<(
+#[derive(Default)]
+pub struct OitNode;
+impl ViewNode for OitNode {
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static ViewDepthTexture,
         &'static RenderPhase<Oit>,
-    )>,
-}
-
-impl OitNode {
-    pub const IN_VIEW: &'static str = "view";
-
-    pub fn new(world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for OitNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
-
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
-
+    );
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        (camera, view_target, depth, phase): QueryItem<Self::ViewQuery>,
         world: &World,
-    ) -> Result<(), bevy::render::render_graph::NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let Ok((
-            camera,
-            view_target,
-            depth,
-            phase,
-        )) = self.query.get_manual(world, view_entity) else {
-            return Ok(());
-        };
-
+    ) -> Result<(), NodeRunError> {
         if phase.items.is_empty() {
             return Ok(());
         }
@@ -82,6 +58,7 @@ impl Node for OitNode {
             pass.set_camera_viewport(viewport);
         }
 
+        let view_entity = graph.get_input_entity(ViewNodeRunner::<Self>::IN_VIEW)?;
         phase.render(&mut pass, world, view_entity);
 
         Ok(())

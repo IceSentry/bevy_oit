@@ -1,6 +1,8 @@
 use crate::oit_phase::OitPipeline;
+use crate::utils::view_node::ViewNode;
 use crate::utils::{color_target, vertex_state, RenderPipelineDescriptorBuilder};
 use crate::{bind_group_entries, bind_group_layout_entries};
+use bevy::ecs::query::QueryItem;
 use bevy::render::render_resource::{
     BindingResource, BindingType, BufferBindingType, SamplerBindingType, ShaderStages,
     TextureSampleType, TextureViewDimension,
@@ -9,14 +11,14 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{ComponentUniforms, ExtractComponent},
-        render_graph::{NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+        render_graph::{NodeRunError, RenderGraphContext},
         render_resource::{
             BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
             CachedRenderPipelineId, Operations, PipelineCache, RenderPassColorAttachment,
             RenderPassDescriptor, Sampler, SamplerDescriptor, ShaderType,
         },
         renderer::{RenderContext, RenderDevice},
-        view::{ExtractedView, ViewTarget},
+        view::ViewTarget,
     },
 };
 
@@ -26,41 +28,17 @@ pub struct PostProcessSettings {
     pub viewport_width: f32,
 }
 
-pub struct PostProcessNode {
-    query: QueryState<&'static ViewTarget, With<ExtractedView>>,
-}
-
-impl PostProcessNode {
-    pub const IN_VIEW: &str = "view";
-
-    pub fn new(world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(world),
-        }
-    }
-}
-
-impl bevy::render::render_graph::Node for PostProcessNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(PostProcessNode::IN_VIEW, SlotType::Entity)]
-    }
-
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
-
+#[derive(Default)]
+pub struct PostProcessNode;
+impl ViewNode for PostProcessNode {
+    type ViewQuery = &'static ViewTarget;
     fn run(
         &self,
-        graph_context: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        view_target: QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph_context.get_input_entity(PostProcessNode::IN_VIEW)?;
-
-        let Ok(view_target) = self.query.get_manual(world, view_entity) else {
-            return Ok(());
-        };
-
         let post_process_pipeline = world.resource::<PostProcessPipeline>();
         let oit_pipeline = world.resource::<OitPipeline>();
 

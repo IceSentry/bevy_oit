@@ -174,7 +174,7 @@ pub mod view_node {
     }
 
     impl<N: ViewNode> ViewNodeRunner<N> {
-        const IN_VIEW: &str = "view";
+        pub const IN_VIEW: &str = "view";
 
         pub fn new(node: N, world: &mut World) -> Self {
             Self {
@@ -223,11 +223,13 @@ pub mod view_node {
     }
 }
 
-mod render_graph_app {
+pub mod render_graph_app {
     use bevy::{
         prelude::*,
-        render::render_graph::{Node, RenderGraph, RenderGraphError},
+        render::render_graph::{Node, NodeLabel, RenderGraph, RenderGraphError, SlotLabel},
     };
+
+    use super::view_node::*;
 
     pub trait RenderGraphApp {
         fn add_render_sub_graph(&mut self, sub_graph_name: &'static str) -> &mut Self;
@@ -247,6 +249,20 @@ mod render_graph_app {
             output_edge: &'static str,
             input_edge: &'static str,
         ) -> &mut Self;
+        fn add_render_graph_slot_edge(
+            &mut self,
+            output_node: impl Into<NodeLabel>,
+            output_slot: impl Into<SlotLabel>,
+            input_node: impl Into<NodeLabel>,
+            input_slot: impl Into<SlotLabel>,
+        ) -> &mut Self;
+        fn add_view_node<N>(
+            &mut self,
+            sub_graph_name: &'static str,
+            node_name: &'static str,
+        ) -> &mut Self
+        where
+            N: ViewNode + Send + Sync + 'static + FromWorld;
     }
 
     impl RenderGraphApp for App {
@@ -256,9 +272,7 @@ mod render_graph_app {
             node_name: &'static str,
         ) -> &mut Self {
             let node = T::from_world(&mut self.world);
-            let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
-            "RenderGraph not found. Make sure you are using add_render_graph_node on the RenderApp",
-        );
+            let mut render_graph = get_render_graph_mut(self);
             if let Some(graph) = render_graph.get_sub_graph_mut(sub_graph_name) {
                 graph.add_node(node_name, node);
             } else {
@@ -272,9 +286,7 @@ mod render_graph_app {
             sub_graph_name: &'static str,
             edges: &[&'static str],
         ) -> &mut Self {
-            let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
-            "RenderGraph not found. Make sure you are using add_render_graph_edges on the RenderApp",
-        );
+            let mut render_graph = get_render_graph_mut(self);
             if let Some(graph) = render_graph.get_sub_graph_mut(sub_graph_name) {
                 add_node_edges(graph, edges);
             } else {
@@ -289,9 +301,7 @@ mod render_graph_app {
             output_edge: &'static str,
             input_edge: &'static str,
         ) -> &mut Self {
-            let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
-            "RenderGraph not found. Make sure you are using add_render_graph_edge on the RenderApp",
-        );
+            let mut render_graph = get_render_graph_mut(self);
             if let Some(graph) = render_graph.get_sub_graph_mut(sub_graph_name) {
                 graph.add_node_edge(output_edge, input_edge);
             } else {
@@ -301,12 +311,52 @@ mod render_graph_app {
         }
 
         fn add_render_sub_graph(&mut self, sub_graph_name: &'static str) -> &mut Self {
-            let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
-                "RenderGraph not found. Make sure you are using add_render_sub_graph on the RenderApp",
-            );
+            let mut render_graph = get_render_graph_mut(self);
             render_graph.add_sub_graph(sub_graph_name, RenderGraph::default());
             self
         }
+
+        fn add_render_graph_slot_edge(
+            &mut self,
+            output_node: impl Into<NodeLabel>,
+            output_slot: impl Into<SlotLabel>,
+            input_node: impl Into<NodeLabel>,
+            input_slot: impl Into<SlotLabel>,
+        ) -> &mut Self {
+            let mut render_graph = get_render_graph_mut(self);
+            render_graph.add_slot_edge(output_node, output_slot, input_node, input_slot);
+            self
+        }
+
+        fn add_view_node<N>(
+            &mut self,
+            sub_graph_name: &'static str,
+            node_name: &'static str,
+        ) -> &mut Self
+        where
+            N: ViewNode + Send + Sync + 'static + FromWorld,
+        {
+            let node = ViewNodeRunner::<N>::from_world(&mut self.world);
+            let mut render_graph = get_render_graph_mut(self);
+            if let Some(graph) = render_graph.get_sub_graph_mut(sub_graph_name) {
+                graph.add_node(node_name, node);
+                graph.add_slot_edge(
+                    graph.input_node().id,
+                    "view_entity",
+                    node_name,
+                    ViewNodeRunner::<N>::IN_VIEW,
+                );
+            } else {
+                warn!("Tried adding a render graph view node to {sub_graph_name} but the sub graph doesn't exist");
+            }
+            self
+        }
+    }
+
+    fn get_render_graph_mut(app: &mut App) -> Mut<'_, RenderGraph> {
+        app.world.get_resource_mut::<RenderGraph>().expect(
+            "RenderGraph not found. Make sure you are using add_render_graph_node on the RenderApp",
+        )
     }
 
     /// Add `node_edge`s based on the order of the given `edges` array.
@@ -316,13 +366,12 @@ mod render_graph_app {
     pub fn add_node_edges(render_graph: &mut RenderGraph, edges: &[&'static str]) {
         for window in edges.windows(2) {
             let [a, b] = window else { break; };
-            if let Err(err) = render_graph.try_add_node_edge(*a, *b) {
-                match err {
-                    // Already existing edges are very easy to produce with this api
-                    // and shouldn't cause a panic
-                    RenderGraphError::EdgeAlreadyExists(_) => {}
-                    _ => panic!("{err:?}"),
-                }
+            let Err(err) = render_graph.try_add_node_edge(*a, *b) else { continue; };
+            match err {
+                // Already existing edges are very easy to produce with this api
+                // and shouldn't cause a panic
+                RenderGraphError::EdgeAlreadyExists(_) => {}
+                _ => panic!("{err:?}"),
             }
         }
     }

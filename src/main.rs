@@ -13,6 +13,7 @@ use oit_phase::{OitMaterial, OitMesh, OitMeshPlugin};
 use post_process_pass::{
     update_settings, PostProcessNode, PostProcessPipeline, PostProcessSettings,
 };
+use utils::{render_graph_app::*, view_node::ViewNodeRunner};
 
 mod oit_node;
 mod oit_phase;
@@ -88,16 +89,8 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     });
 }
 
-pub mod graph {
-    pub mod input {
-        pub const VIEW_ENTITY: &str = "view_entity";
-    }
-
-    pub mod node {
-        pub const OIT_PASS: &str = "oit_pass";
-        pub const POST_PROCESS_PASS: &str = "post_process_pass";
-    }
-}
+pub const OIT_PASS: &str = "oit_pass";
+pub const POST_PROCESS_PASS: &str = "post_process_pass";
 
 struct OitPlugin;
 impl Plugin for OitPlugin {
@@ -117,41 +110,12 @@ impl Plugin for OitPlugin {
 
         render_app.init_resource::<PostProcessPipeline>();
 
-        // oit pass
-        {
-            let oit_node = OitNode::new(&mut render_app.world);
-            let mut graph = render_app.world.resource_mut::<RenderGraph>();
+        const CORE_3D: &str = core_3d::graph::NAME;
 
-            let core_3d_graph = graph.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
-            core_3d_graph.add_node(graph::node::OIT_PASS, oit_node);
-            core_3d_graph.add_slot_edge(
-                core_3d_graph.input_node().id,
-                graph::input::VIEW_ENTITY,
-                graph::node::OIT_PASS,
-                OitNode::IN_VIEW,
-            );
-        }
-
-        //post process
-        {
-            let node = PostProcessNode::new(&mut render_app.world);
-            let mut graph = render_app.world.resource_mut::<RenderGraph>();
-            let core_3d_graph = graph.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
-            core_3d_graph.add_node(graph::node::POST_PROCESS_PASS, node);
-            core_3d_graph.add_slot_edge(
-                core_3d_graph.input_node().id,
-                core_3d::graph::input::VIEW_ENTITY,
-                graph::node::POST_PROCESS_PASS,
-                PostProcessNode::IN_VIEW,
-            );
-        }
-
-        {
-            let mut graph = render_app.world.resource_mut::<RenderGraph>();
-            let core_3d_graph = graph.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
-            // MAIN -> OIT -> POST_PROCESS
-            core_3d_graph.add_node_edge(core_3d::graph::node::MAIN_PASS, graph::node::OIT_PASS);
-            core_3d_graph.add_node_edge(graph::node::OIT_PASS, graph::node::POST_PROCESS_PASS);
-        }
+        use core_3d::graph::node::*;
+        render_app
+            .add_view_node::<PostProcessNode>(CORE_3D, POST_PROCESS_PASS)
+            .add_view_node::<OitNode>(CORE_3D, OIT_PASS)
+            .add_render_graph_edges(CORE_3D, &[MAIN_PASS, OIT_PASS, POST_PROCESS_PASS]);
     }
 }

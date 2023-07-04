@@ -23,7 +23,7 @@ use bevy::{
             BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
             BindingType, BufferBindingType, CachedRenderPipelineId, PipelineCache,
             RenderPipelineDescriptor, ShaderStages, ShaderType, SpecializedMeshPipeline,
-            SpecializedMeshPipelineError, SpecializedMeshPipelines, StorageBuffer, UniformBuffer,
+            SpecializedMeshPipelineError, SpecializedMeshPipelines, StorageBuffer,
         },
         renderer::{RenderDevice, RenderQueue},
         view::{ExtractedView, VisibleEntities},
