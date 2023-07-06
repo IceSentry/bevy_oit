@@ -1,9 +1,10 @@
 use bevy::{
     core_pipeline::core_3d,
     prelude::{shape::UVSphere, *},
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::{
         extract_component::{ExtractComponentPlugin, UniformComponentPlugin},
+        render_graph::{RenderGraphApp, ViewNodeRunner},
         render_resource::{AsBindGroup, ShaderRef},
         RenderApp,
     },
@@ -13,7 +14,6 @@ use camera_controller::{CameraController, CameraControllerPlugin};
 use oit_node::OitNode;
 use oit_phase::{OitMaterial, OitMesh, OitMeshPlugin, OitSettings};
 use post_process_pass::{PostProcessNode, PostProcessPipeline, PostProcessSettings};
-use utils::render_graph_app::*;
 
 use crate::clear_pass::{ClearNode, ClearPipeline, ClearSettings};
 
@@ -33,19 +33,21 @@ pub const OIT_LAYERS: usize = 8;
 fn main() {
     App::new()
         .insert_resource(Msaa::Off)
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resolution: WindowResolution::new(WINDOW_WIDTH as f32, WINDOW_HEIGHT as f32),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: WindowResolution::new(WINDOW_WIDTH as f32, WINDOW_HEIGHT as f32),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(MaterialPlugin::<GoochMaterial>::default())
-        .add_plugin(OitMeshPlugin)
-        .add_plugin(OitPlugin)
-        .add_plugin(CameraControllerPlugin)
-        .add_startup_system(setup)
-        .add_system(mat)
+            MaterialPlugin::<GoochMaterial>::default(),
+            OitMeshPlugin,
+            OitPlugin,
+            CameraControllerPlugin,
+        ))
+        .add_systems(Startup, setup)
+        .add_systems(Update, mat)
         .run();
 }
 
@@ -183,19 +185,41 @@ impl Plugin for OitPlugin {
     fn build(&self, app: &mut App) {
         app
             // clear pass
-            .add_plugin(ExtractComponentPlugin::<ClearSettings>::default())
-            .add_plugin(UniformComponentPlugin::<ClearSettings>::default())
-            .add_system(clear_pass::update_settings)
+            .add_plugins((
+                ExtractComponentPlugin::<ClearSettings>::default(),
+                UniformComponentPlugin::<ClearSettings>::default(),
+            ))
+            .add_systems(Update, clear_pass::update_settings)
             // oit phase
-            .add_plugin(ExtractComponentPlugin::<OitMaterial>::default())
-            .add_plugin(UniformComponentPlugin::<OitMaterial>::default())
-            .add_plugin(ExtractComponentPlugin::<OitSettings>::default())
-            .add_plugin(UniformComponentPlugin::<OitSettings>::default())
+            .add_plugins((
+                ExtractComponentPlugin::<OitMaterial>::default(),
+                UniformComponentPlugin::<OitMaterial>::default(),
+                ExtractComponentPlugin::<OitSettings>::default(),
+                UniformComponentPlugin::<OitSettings>::default(),
+            ))
             // post process
-            .add_plugin(ExtractComponentPlugin::<PostProcessSettings>::default())
-            .add_plugin(UniformComponentPlugin::<PostProcessSettings>::default())
-            .add_system(post_process_pass::update_settings);
+            .add_plugins((
+                ExtractComponentPlugin::<PostProcessSettings>::default(),
+                UniformComponentPlugin::<PostProcessSettings>::default(),
+            ))
+            .add_systems(Update, post_process_pass::update_settings);
 
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        const CORE_3D: &str = core_3d::graph::NAME;
+
+        use core_3d::graph::node::*;
+        render_app
+            .add_render_graph_node::<ViewNodeRunner<ClearNode>>(CORE_3D, CLEAR_PASS)
+            .add_render_graph_node::<ViewNodeRunner<OitNode>>(CORE_3D, OIT_PASS)
+            .add_render_graph_node::<ViewNodeRunner<PostProcessNode>>(CORE_3D, POST_PROCESS_PASS)
+            .add_render_graph_edges(CORE_3D, &[END_MAIN_PASS, OIT_PASS, POST_PROCESS_PASS])
+            .add_render_graph_edges(CORE_3D, &[CLEAR_PASS, OIT_PASS]);
+    }
+
+    fn finish(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -203,20 +227,10 @@ impl Plugin for OitPlugin {
         render_app
             .init_resource::<PostProcessPipeline>()
             .init_resource::<ClearPipeline>();
-
-        const CORE_3D: &str = core_3d::graph::NAME;
-
-        use core_3d::graph::node::*;
-        render_app
-            .add_view_node::<ClearNode>(CORE_3D, CLEAR_PASS)
-            .add_view_node::<OitNode>(CORE_3D, OIT_PASS)
-            .add_view_node::<PostProcessNode>(CORE_3D, POST_PROCESS_PASS)
-            .add_render_graph_edges(CORE_3D, &[MAIN_PASS, OIT_PASS, POST_PROCESS_PASS])
-            .add_render_graph_edges(CORE_3D, &[CLEAR_PASS, OIT_PASS]);
     }
 }
 
-#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
+#[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
 #[uuid = "fd884c25-98b1-5155-a809-881b0740b498"]
 struct GoochMaterial {
     #[uniform(0)]

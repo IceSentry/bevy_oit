@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.10.1"
+# bevy = "0.10.1"
+bevy = { git = "https://github.com/bevyengine/bevy", rev = "b61397e32bca34958e57198c0969359da647eafa" }
 
 [patch.crates-io]
-naga = { path = "./patches/naga" }
+# naga = { path = "./patches/naga" }

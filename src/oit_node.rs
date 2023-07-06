@@ -3,7 +3,7 @@ use bevy::{
     prelude::World,
     render::{
         camera::ExtractedCamera,
-        render_graph::{NodeRunError, RenderGraphContext},
+        render_graph::{NodeRunError, RenderGraphContext, ViewNode},
         render_phase::RenderPhase,
         render_resource::{
             LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor,
@@ -13,10 +13,7 @@ use bevy::{
     },
 };
 
-use crate::{
-    oit_phase::Oit,
-    utils::view_node::{ViewNode, ViewNodeRunner},
-};
+use crate::oit_phase::Oit;
 
 #[derive(Default)]
 pub struct OitNode;
@@ -58,8 +55,7 @@ impl ViewNode for OitNode {
             pass.set_camera_viewport(viewport);
         }
 
-        let view_entity = graph.get_input_entity(ViewNodeRunner::<Self>::IN_VIEW)?;
-        phase.render(&mut pass, world, view_entity);
+        phase.render(&mut pass, world, graph.view_entity());
 
         Ok(())
     }

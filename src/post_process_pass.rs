@@ -1,12 +1,13 @@
-use crate::oit_phase::OitPipeline;
-use crate::utils::view_node::ViewNode;
-use crate::utils::{color_target, vertex_state, RenderPipelineDescriptorBuilder};
-use crate::{bind_group_entries, bind_group_layout_entries};
-use bevy::ecs::query::QueryItem;
+use crate::{
+    bind_group_entries, bind_group_layout_entries,
+    oit_phase::OitPipeline,
+    utils::{color_target, vertex_state, RenderPipelineDescriptorBuilder},
+};
 use bevy::render::render_resource::{
     BindingResource, BindingType, BufferBindingType, SamplerBindingType, ShaderStages,
     TextureSampleType, TextureViewDimension,
 };
+use bevy::{ecs::query::QueryItem, render::render_graph::ViewNode};
 use bevy::{
     prelude::*,
     render::{

@@ -1,13 +1,6 @@
-#ifndef MAX_CASCADES_PER_LIGHT
-    #define MAX_CASCADES_PER_LIGHT 1
-#endif
-
-#ifndef MAX_DIRECTIONAL_LIGHTS
-    #define MAX_DIRECTIONAL_LIGHTS 1
-#endif
-
-#import bevy_pbr::mesh_view_types
-#import bevy_pbr::mesh_types
+#import bevy_pbr::mesh_functions as mesh_functions
+#import bevy_render::view  View
+#import bevy_pbr::mesh_types Mesh
 
 // viewport(x_origin, y_origin, width, height)
 @group(0) @binding(0)
@@ -51,13 +44,7 @@ struct MeshVertexOutput {
 @vertex
 fn vertex(vertex: Vertex) ->  MeshVertexOutput {
     var out: MeshVertexOutput;
-    out.world_normal = normalize(
-        mat3x3<f32>(
-            mesh.inverse_transpose_model[0].xyz,
-            mesh.inverse_transpose_model[1].xyz,
-            mesh.inverse_transpose_model[2].xyz
-        ) * vertex.normal
-    );
+    out.world_normal = mesh_functions::mesh_normal_local_to_world(vertex.normal);
     out.position = view.view_proj * mesh.model * vec4(vertex.position, 1.0);
     return out;
 }

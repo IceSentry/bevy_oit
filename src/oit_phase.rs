@@ -32,7 +32,7 @@ use bevy::{
         },
         renderer::{RenderDevice, RenderQueue},
         view::{ExtractedView, VisibleEntities},
-        Extract, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSet,
     },
     utils::{FixedState, FloatOrd, Hashed},
 };
@@ -54,23 +54,33 @@ pub struct OitMeshPlugin;
 impl Plugin for OitMeshPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, OIT_SHADER_HANDLE, "oit.wgsl", Shader::from_wgsl);
-        app.add_plugin(ExtractComponentPlugin::<OitMesh>::default());
+        app.add_plugins(ExtractComponentPlugin::<OitMesh>::default());
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
-            .init_resource::<OitPipeline>()
-            .init_resource::<SpecializedMeshPipelines<OitPipeline>>()
             .init_resource::<DrawFunctions<Oit>>()
             .add_render_command::<Oit, DrawOitMesh>()
-            .add_system(sort_phase_system::<Oit>.in_set(RenderSet::PhaseSort))
-            .add_systems((
-                extract_phase.in_schedule(ExtractSchedule),
-                queue_bind_group.in_set(RenderSet::Queue),
-                queue_oit_mesh.in_set(RenderSet::Queue),
-            ));
+            .add_systems(ExtractSchedule, extract_phase)
+            .add_systems(
+                Render,
+                (
+                    sort_phase_system::<Oit>.in_set(RenderSet::PhaseSort),
+                    queue_bind_group.in_set(RenderSet::Queue),
+                    queue_oit_mesh.in_set(RenderSet::Queue),
+                ),
+            );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        render_app
+            .init_resource::<OitPipeline>()
+            .init_resource::<SpecializedMeshPipelines<OitPipeline>>();
     }
 }
 
@@ -216,7 +226,7 @@ impl SpecializedMeshPipeline for OitPipeline {
             }
         };
 
-        layout.push(self.mesh_pipeline.mesh_layout.clone());
+        layout.push(self.mesh_pipeline.mesh_layouts.model_only.clone());
         layout.push(self.layout.clone());
 
         desc.layout = layout;
