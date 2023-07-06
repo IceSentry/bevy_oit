@@ -48,7 +48,7 @@ impl ViewNode for OitNode {
                 view: &depth.view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Load,
-                    store: true,
+                    store: false,
                 }),
                 stencil_ops: None,
             }),

@@ -1,6 +1,5 @@
 use bevy::{
     core_pipeline::core_3d,
-    pbr::NotShadowCaster,
     prelude::{shape::UVSphere, *},
     reflect::TypeUuid,
     render::{
@@ -27,7 +26,9 @@ mod utils;
 
 pub const WINDOW_WIDTH: usize = 1280;
 pub const WINDOW_HEIGHT: usize = 720;
-pub const OIT_LAYERS: usize = 16;
+pub const OIT_LAYERS: usize = 8;
+
+// TODO handle resize
 
 fn main() {
     App::new()
@@ -44,6 +45,7 @@ fn main() {
         .add_plugin(OitPlugin)
         .add_plugin(CameraControllerPlugin)
         .add_startup_system(setup)
+        .add_system(mat)
         .run();
 }
 
@@ -62,10 +64,11 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<GoochMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 5.0),
+            transform: Transform::from_xyz(0.0, 1.0, 5.0),
             ..default()
         },
         PostProcessSettings {
@@ -82,37 +85,49 @@ fn setup(
         CameraController::default(),
     ));
 
-    let pos_a = Vec3::new(-0.5, 0.5, -0.25);
-    let pos_b = Vec3::new(0.0, 0.0, 0.0);
-    let pos_c = Vec3::new(0.5, 0.5, 0.25);
+    commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 1500.0,
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        ..default()
+    });
 
-    let offset = Vec3::new(-1.65, 0.0, 0.0);
-    commands.spawn(OitBundle {
-        mesh: meshes.add(UVSphere::default().into()),
-        material: OitMaterial {
-            base_color: Color::RED.with_a(0.5),
-        },
-        transform: Transform::from_translation(pos_a + offset),
-        ..default()
-    });
-    commands.spawn(OitBundle {
-        mesh: meshes.add(UVSphere::default().into()),
-        material: OitMaterial {
-            base_color: Color::GREEN.with_a(0.5),
-        },
-        transform: Transform::from_translation(pos_b + offset),
-        ..default()
-    });
-    commands.spawn(OitBundle {
-        mesh: meshes.add(UVSphere::default().into()),
-        material: OitMaterial {
-            base_color: Color::BLUE.with_a(0.5),
-        },
-        transform: Transform::from_translation(pos_c + offset),
-        ..default()
-    });
+    let pos_a = Vec3::new(-0.5, 0.5, 0.0);
+    let pos_b = Vec3::new(0.0, 0.0, 0.0);
+    let pos_c = Vec3::new(0.5, 0.5, 0.0);
 
     let offset = Vec3::new(1.65, 0.0, 0.0);
+
+    // OIT
+    commands.spawn(OitBundle {
+        mesh: meshes.add(UVSphere::default().into()),
+        material: OitMaterial {
+            base_color: Color::RED.with_a(0.5),
+        },
+        transform: Transform::from_translation(pos_a - offset),
+        ..default()
+    });
+    commands.spawn(OitBundle {
+        mesh: meshes.add(UVSphere::default().into()),
+        material: OitMaterial {
+            base_color: Color::GREEN.with_a(0.5),
+        },
+        transform: Transform::from_translation(pos_b - offset),
+        ..default()
+    });
+    commands.spawn(OitBundle {
+        mesh: meshes.add(UVSphere::default().into()),
+        material: OitMaterial {
+            base_color: Color::BLUE.with_a(0.5),
+        },
+        transform: Transform::from_translation(pos_c - offset),
+        ..default()
+    });
+
+    // Alpha Blend
     commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(UVSphere::default().into()),
         material: materials.add(GoochMaterial {
@@ -137,6 +152,26 @@ fn setup(
         transform: Transform::from_translation(pos_c + offset),
         ..default()
     });
+
+    // Bunny
+    // commands.spawn(SceneBundle {
+    //     scene: asset_server.load("bunny.glb#Scene0"),
+    //     ..default()
+    // });
+}
+
+fn mat(mut commands: Commands, q: Query<Entity, With<Handle<StandardMaterial>>>) {
+    for e in &q {
+        commands
+            .entity(e)
+            .remove::<Handle<StandardMaterial>>()
+            .insert((
+                OitMaterial {
+                    base_color: Color::BLUE.with_a(0.5),
+                },
+                OitMesh,
+            ));
+    }
 }
 
 pub const CLEAR_PASS: &str = "clear_pass";

@@ -73,14 +73,13 @@ fn gooch_shading(normal: vec3<f32>) -> vec3<f32> {
 
 @fragment
 fn fragment(mesh: MeshVertexOutput) -> @location(0) vec4<f32> {
-    let screen_index = i32(mesh.position.x + mesh.position.y * view.viewport.z);
+    let screen_index = i32(floor(mesh.position.x + mesh.position.y * view.viewport.z));
 
-    let buffer_size = i32(view.viewport.z * view.viewport.w);
+    let buffer_size = i32(floor(view.viewport.z * view.viewport.w));
 
     // TODO look into tail blending when counter becomes larger than oit_layers
     var abidx = atomicLoad(&a_counter[screen_index]);
     abidx += 1;
-    // abidx %= i32(settings.oit_layers);
     abidx = clamp(abidx, 0, i32(settings.oit_layers));
     atomicStore(&a_counter[screen_index], abidx);
 
@@ -90,7 +89,7 @@ fn fragment(mesh: MeshVertexOutput) -> @location(0) vec4<f32> {
     let shading = gooch_shading(mesh.world_normal);
     var color = material.base_color.rgb;
     color *= shading;
-    layers[layer_index] = vec4(color, mesh.position.z);
+    layers[i32((mesh.position.x + mesh.position.y * view.viewport.z) + (f32(abidx - 1) * view.viewport.z * view.viewport.w))] = vec4(color, mesh.position.z);
 
     // we don't want to actually render anything here
     discard;

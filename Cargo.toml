@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.10.1"
+
+[patch.crates-io]
+naga = { path = "./patches/naga" }

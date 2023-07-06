@@ -20,9 +20,9 @@ use bevy::{
         mesh::InnerMeshVertexBufferLayout,
         render_asset::RenderAssets,
         render_phase::{
-            AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
-            PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
-            TrackedRenderPass,
+            sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
+            DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase,
+            SetItemPipeline, TrackedRenderPass,
         },
         render_resource::{
             BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
@@ -65,6 +65,7 @@ impl Plugin for OitMeshPlugin {
             .init_resource::<SpecializedMeshPipelines<OitPipeline>>()
             .init_resource::<DrawFunctions<Oit>>()
             .add_render_command::<Oit, DrawOitMesh>()
+            .add_system(sort_phase_system::<Oit>.in_set(RenderSet::PhaseSort))
             .add_systems((
                 extract_phase.in_schedule(ExtractSchedule),
                 queue_bind_group.in_set(RenderSet::Queue),
@@ -312,7 +313,6 @@ pub fn queue_oit_mesh(
                 entity,
                 pipeline,
                 draw_function,
-                // TODO remove this, we don't need to sort
                 distance: inv_view_row_2.dot(mesh_uniform.transform.col(3)),
             });
         }

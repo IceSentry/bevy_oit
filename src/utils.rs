@@ -124,6 +124,7 @@ impl RenderPipelineDescriptorBuilder {
         self
     }
 
+    #[allow(unused)]
     pub fn vertex(
         mut self,
         shader: Handle<Shader>,

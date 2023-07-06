@@ -77,10 +77,25 @@ fn sort(screen_index: i32, buffer_size: i32, background_color: vec4<f32>) -> vec
     for (var i = 0; i < counter; i += 1){
        fragment_list[i] = layers[screen_index + buffer_size * i];
     }
-    // return fragment_list[0];
 
     // bubble sort
-    for (var i = (counter - 2); i >= 0; i -= 1){
+
+    for (var i = 0; i < counter - 1; i += 1){
+        var swapped = false;
+        for (var j = 0; j < counter - i - 1; j += 1) {
+            if fragment_list[j].w > fragment_list[j + 1].w {
+                let temp = fragment_list[j + 1];
+                fragment_list[j + 1] = fragment_list[j];
+                fragment_list[j] = temp;
+                swapped = true;
+            }
+        }
+        if swapped {
+            break;
+        }
+    }
+
+    for (var i = counter; i >= 0; i -= 1){
         for (var j = 0; j <= i; j += 1) {
             if fragment_list[j].w < fragment_list[j + 1].w {
                 let temp = fragment_list[j + 1];
@@ -92,12 +107,11 @@ fn sort(screen_index: i32, buffer_size: i32, background_color: vec4<f32>) -> vec
     // return fragment_list[0];
 
     // resolve blend
-    var final_color = vec4(0.0, 0.0, 0.0, 0.0);
+    var final_color = vec4(0.0);
 
-    // let sigma = 30.0; // No idea what that is
-    // var thickness = fragment_list[0].w / 2.0;
+    let sigma = 30.0; // No idea what that is
+    var thickness = fragment_list[0].w / 2.0;
     let alpha = 0.5; // TODO should probably not be fixed
-    // let background_color = vec4(0.5, 0.5, 0.5, 1.0);
 
     for (var i = 0; i < counter; i += 1) {
         let frag = fragment_list[i];
