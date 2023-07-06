@@ -10,6 +10,7 @@ use bevy::{
     },
     window::WindowResolution,
 };
+use camera_controller::{CameraController, CameraControllerPlugin};
 use oit_node::OitNode;
 use oit_phase::{OitMaterial, OitMesh, OitMeshPlugin, OitSettings};
 use post_process_pass::{PostProcessNode, PostProcessPipeline, PostProcessSettings};
@@ -17,6 +18,7 @@ use utils::render_graph_app::*;
 
 use crate::clear_pass::{ClearNode, ClearPipeline, ClearSettings};
 
+mod camera_controller;
 mod clear_pass;
 mod oit_node;
 mod oit_phase;
@@ -40,6 +42,7 @@ fn main() {
         .add_plugin(MaterialPlugin::<GoochMaterial>::default())
         .add_plugin(OitMeshPlugin)
         .add_plugin(OitPlugin)
+        .add_plugin(CameraControllerPlugin)
         .add_startup_system(setup)
         .run();
 }
@@ -76,6 +79,7 @@ fn setup(
         ClearSettings {
             viewport_width: WINDOW_WIDTH as f32,
         },
+        CameraController::default(),
     ));
 
     let pos_a = Vec3::new(-0.5, 0.5, -0.25);
