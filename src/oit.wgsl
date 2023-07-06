@@ -34,10 +34,8 @@ struct Vertex {
 };
 
 struct MeshVertexOutput {
-    // this is `clip position` when the struct is used as a vertex stage output
-    // and `frag coord` when used as a fragment stage input
     @builtin(position) position: vec4<f32>,
-    // @location(0) world_position: vec4<f32>,
+    @location(0) world_position: vec4<f32>,
     @location(1) world_normal: vec3<f32>,
 }
 
@@ -45,7 +43,8 @@ struct MeshVertexOutput {
 fn vertex(vertex: Vertex) ->  MeshVertexOutput {
     var out: MeshVertexOutput;
     out.world_normal = mesh_functions::mesh_normal_local_to_world(vertex.normal);
-    out.position = view.view_proj * mesh.model * vec4(vertex.position, 1.0);
+    out.world_position = mesh_functions::mesh_position_local_to_world(mesh.model, vec4(vertex.position, 1.0));
+    out.position = mesh_functions::mesh_position_world_to_clip(out.world_position);
     return out;
 }
 

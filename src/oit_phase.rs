@@ -174,7 +174,7 @@ impl FromWorld for OitPipeline {
                 1 => (ShaderStages::FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: Some(OitSettings::min_size()),
                 }),
                 2 => (ShaderStages::FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Storage { read_only: false },
