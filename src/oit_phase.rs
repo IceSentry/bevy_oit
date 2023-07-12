@@ -156,7 +156,7 @@ pub type DrawOitMesh = (
     SetMeshViewBindGroup<0>,
     SetMeshBindGroup<1>,
     SetOitBindGroup<2>,
-    SetOitLayersBindGroup<3>,
+    // SetOitLayersBindGroup<3>,
     DrawMesh,
 );
 
@@ -257,10 +257,9 @@ impl SpecializedMeshPipeline for OitPipeline {
                 vec![self.mesh_pipeline.view_layout_multisampled.clone()]
             }
         };
-
         layout.push(self.mesh_pipeline.mesh_layouts.model_only.clone());
         layout.push(self.layout.clone());
-        layout.push(self.layers_layout.clone());
+        // layout.push(self.layers_layout.clone());
 
         desc.layout = layout;
         desc.vertex.shader = OIT_SHADER_HANDLE.typed::<Shader>();

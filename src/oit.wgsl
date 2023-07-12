@@ -70,7 +70,6 @@ fn fragment(mesh: MeshVertexOutput) -> @location(0) vec4<f32> {
 
     // let layer_index = screen_index + (abidx - 1) * buffer_size;
 
-    // // TODO use pbr() here or any kind of simple shading
     // let shading = gooch_shading(mesh.world_normal);
     // var color = material.base_color.rgb;
     // color *= shading;
