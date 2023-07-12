@@ -8,7 +8,7 @@ var<uniform> settings: ClearSettings;
 @group(0) @binding(1)
 var<storage, read_write> a_counter: array<atomic<i32>>;
 
-@group(0) @binding(2)
+@group(1) @binding(0)
 var<storage, read_write> layers: array<vec4<f32>>;
 
 struct FullscreenVertexOutput {
