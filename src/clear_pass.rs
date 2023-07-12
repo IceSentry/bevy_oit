@@ -63,9 +63,19 @@ impl ViewNode for ClearNode {
                 entries: &bind_group_entries![
                     0 => settings_binding.clone(),
                     1 => oit_pipeline.counter_buffer.binding().unwrap(),
-                    2 => oit_pipeline.layers.binding().unwrap(),
                 ],
             });
+
+        let layers_bind_group =
+            render_context
+                .render_device()
+                .create_bind_group(&BindGroupDescriptor {
+                    label: Some("clear_layers_bind_group"),
+                    layout: &clear_pipeline.layout,
+                    entries: &bind_group_entries![
+                        0 => oit_pipeline.layers.binding().unwrap(),
+                    ],
+                });
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("clear_pass"),
@@ -79,6 +89,7 @@ impl ViewNode for ClearNode {
 
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
+        render_pass.set_bind_group(1, &layers_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -88,6 +99,7 @@ impl ViewNode for ClearNode {
 #[derive(Resource)]
 pub struct ClearPipeline {
     pub layout: BindGroupLayout,
+    pub layers_layout: BindGroupLayout,
     pub sampler: Sampler,
     pub pipeline_id: CachedRenderPipelineId,
 }
@@ -100,19 +112,25 @@ impl FromWorld for ClearPipeline {
             label: Some("clear_bind_group_layout"),
             entries: &bind_group_layout_entries![
                 // settings
-                0 => (ShaderStages::FRAGMENT, BindingType::Buffer {
+                0 => (ShaderStages::VERTEX_FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 }),
                 // counter
-                1 => (ShaderStages::FRAGMENT, BindingType::Buffer {
+                1 => (ShaderStages::VERTEX_FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Storage { read_only: false },
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 }),
+            ],
+        });
+
+        let layers_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("clear_bind_group_layers_layout"),
+            entries: &bind_group_layout_entries![
                 // oit layers buffer
-                2 => (ShaderStages::FRAGMENT, BindingType::Buffer {
+                0 => (ShaderStages::VERTEX_FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Storage { read_only: false },
                     has_dynamic_offset: false,
                     min_binding_size: None,
@@ -126,7 +144,7 @@ impl FromWorld for ClearPipeline {
 
         let descriptor = RenderPipelineDescriptorBuilder::fullscreen()
             .label("clear_pipeline")
-            .layout(vec![layout.clone()])
+            .layout(vec![layout.clone(), layers_layout.clone()])
             .fragment(shader, "fragment", &[color_target(None)], &[])
             .build();
 
@@ -136,6 +154,7 @@ impl FromWorld for ClearPipeline {
 
         Self {
             layout,
+            layers_layout,
             sampler,
             pipeline_id,
         }

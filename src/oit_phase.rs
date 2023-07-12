@@ -132,11 +132,31 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOitBindGroup<I> {
     }
 }
 
+pub struct SetOitLayersBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOitLayersBindGroup<I> {
+    type Param = SRes<OitBindGroup>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<DynamicUniformIndex<OitMaterial>>;
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        _view: (),
+        entity: ROQueryItem<'w, Self::ItemWorldQuery>,
+        oit_bind_group: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        pass.set_bind_group(I, &oit_bind_group.into_inner().layers, &[entity.index()]);
+        RenderCommandResult::Success
+    }
+}
+
 pub type DrawOitMesh = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetMeshBindGroup<1>,
     SetOitBindGroup<2>,
+    SetOitLayersBindGroup<3>,
     DrawMesh,
 );
 
@@ -154,6 +174,7 @@ pub struct OitSettings {
 pub struct OitPipeline {
     mesh_pipeline: MeshPipeline,
     layout: BindGroupLayout,
+    layers_layout: BindGroupLayout,
     pub counter_buffer: StorageBuffer<Vec<i32>>,
     pub layers: StorageBuffer<Vec<Vec4>>,
 }
@@ -166,22 +187,32 @@ impl FromWorld for OitPipeline {
         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("oit_bind_group_layout"),
             entries: &bind_group_layout_entries![
-                0 => (ShaderStages::FRAGMENT, BindingType::Buffer {
+                // material
+                0 => (ShaderStages::VERTEX_FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
                     min_binding_size: Some(OitMaterial::min_size()),
                 }),
-                1 => (ShaderStages::FRAGMENT, BindingType::Buffer {
+                // settings
+                1 => (ShaderStages::VERTEX_FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
+                    has_dynamic_offset: true,
                     min_binding_size: Some(OitSettings::min_size()),
                 }),
-                2 => (ShaderStages::FRAGMENT, BindingType::Buffer {
+            ],
+        });
+
+        let layers_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("oit_bind_group_layers_layout"),
+            entries: &bind_group_layout_entries![
+                // counter
+                0 => (ShaderStages::VERTEX_FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Storage { read_only: false },
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 }),
-                3 => (ShaderStages::FRAGMENT, BindingType::Buffer {
+                // layers
+                1 => (ShaderStages::VERTEX_FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Storage { read_only: false },
                     has_dynamic_offset: false,
                     min_binding_size: None,
@@ -201,6 +232,7 @@ impl FromWorld for OitPipeline {
         OitPipeline {
             mesh_pipeline,
             layout,
+            layers_layout,
             counter_buffer,
             layers,
         }
@@ -228,6 +260,7 @@ impl SpecializedMeshPipeline for OitPipeline {
 
         layout.push(self.mesh_pipeline.mesh_layouts.model_only.clone());
         layout.push(self.layout.clone());
+        layout.push(self.layers_layout.clone());
 
         desc.layout = layout;
         desc.vertex.shader = OIT_SHADER_HANDLE.typed::<Shader>();
@@ -253,6 +286,7 @@ pub fn extract_phase(mut commands: Commands, cameras: Extract<Query<Entity, With
 #[derive(Resource)]
 pub struct OitBindGroup {
     value: BindGroup,
+    layers: BindGroup,
 }
 
 pub fn queue_bind_group(
@@ -276,13 +310,21 @@ pub fn queue_bind_group(
         entries: &bind_group_entries![
             0 => material_binding.clone(),
             1 => settings_binding.clone(),
-            2 => pipeline.counter_buffer.binding().unwrap(),
-            3 => pipeline.layers.binding().unwrap(),
+        ],
+    });
+
+    let oit_layers_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+        label: Some("oit_layers_bind_group"),
+        layout: &pipeline.layers_layout,
+        entries: &bind_group_entries![
+            0 => pipeline.counter_buffer.binding().unwrap(),
+            1 => pipeline.layers.binding().unwrap(),
         ],
     });
 
     commands.insert_resource(OitBindGroup {
         value: oit_bind_group,
+        layers: oit_layers_bind_group,
     });
 }
 

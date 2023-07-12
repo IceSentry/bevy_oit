@@ -104,29 +104,29 @@ impl FromWorld for PostProcessPipeline {
             label: Some("post_process_bind_group_layout"),
             entries: &bind_group_layout_entries![
                 // texture
-                0 => (ShaderStages::FRAGMENT, BindingType::Texture {
+                0 => (ShaderStages::VERTEX_FRAGMENT, BindingType::Texture {
                     sample_type: TextureSampleType::Float { filterable: true },
                     view_dimension: TextureViewDimension::D2,
                     multisampled: false,
                 }),
                 // sampler
-                1 => (ShaderStages::FRAGMENT, BindingType::Sampler(
+                1 => (ShaderStages::VERTEX_FRAGMENT, BindingType::Sampler(
                     SamplerBindingType::Filtering
                 )),
                 // settings
-                2 => (ShaderStages::FRAGMENT, BindingType::Buffer {
+                2 => (ShaderStages::VERTEX_FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 }),
                 // counter
-                3 => (ShaderStages::FRAGMENT, BindingType::Buffer {
+                3 => (ShaderStages::VERTEX_FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 }),
                 // oit layers buffer
-                4 => (ShaderStages::FRAGMENT, BindingType::Buffer {
+                4 => (ShaderStages::VERTEX_FRAGMENT, BindingType::Buffer {
                     ty: BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
                     min_binding_size: None,
