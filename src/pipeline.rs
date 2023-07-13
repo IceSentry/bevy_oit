@@ -15,17 +15,18 @@ use bevy::{
     },
 };
 
-use super::{
-    CustomMaterialBindGroup, CustomMaterialUniform, OitLayerIdsBindGroup, OitLayersBindGroup,
-    CUSTOM_DRAW_SHADER_HANDLE, RENDER_OIT_SHADER_HANDLE,
-};
 use crate::{
-    bind_group_entries, bind_group_layout_entries, utils::RenderPipelineDescriptorBuilder,
+    bind_group_entries, bind_group_layout_entries,
+    oit_plugin::{
+        OitLayerIdsBindGroup, OitLayersBindGroup, OitMaterialBindGroup, OitMaterialUniform,
+        OIT_DRAW_SHADER_HANDLE, OIT_RENDER_SHADER_HANDLE,
+    },
+    utils::RenderPipelineDescriptorBuilder,
     OIT_LAYERS, WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 
 #[derive(Resource)]
-pub struct CustomPipeline {
+pub struct OitDrawPipeline {
     pub(crate) mesh_pipeline: MeshPipeline,
     pub(crate) material_bind_group_layout: BindGroupLayout,
     pub(crate) oit_layers_bind_group_layout: BindGroupLayout,
@@ -34,19 +35,19 @@ pub struct CustomPipeline {
     pub(crate) oit_layer_ids_buffer: StorageBuffer<Vec<i32>>,
 }
 
-impl FromWorld for CustomPipeline {
+impl FromWorld for OitDrawPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let render_queue = world.resource::<RenderQueue>();
 
         let material_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("custom_bind_group_layout"),
+                label: Some("oit_bind_group_layout"),
                 entries: &bind_group_layout_entries![
                     0 => (ShaderStages::FRAGMENT, BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: Some(CustomMaterialUniform::min_size()),
+                        min_binding_size: Some(OitMaterialUniform::min_size()),
                     }),
                 ],
             });
@@ -85,7 +86,7 @@ impl FromWorld for CustomPipeline {
         oit_layer_ids_buffer.set(vec![0; WINDOW_WIDTH * WINDOW_HEIGHT]);
         oit_layer_ids_buffer.write_buffer(render_device, render_queue);
 
-        CustomPipeline {
+        OitDrawPipeline {
             mesh_pipeline,
             material_bind_group_layout,
             oit_layers_bind_group_layout,
@@ -96,7 +97,7 @@ impl FromWorld for CustomPipeline {
     }
 }
 
-impl SpecializedMeshPipeline for CustomPipeline {
+impl SpecializedMeshPipeline for OitDrawPipeline {
     type Key = MeshPipelineKey;
     fn specialize(
         &self,
@@ -105,7 +106,7 @@ impl SpecializedMeshPipeline for CustomPipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut desc = self.mesh_pipeline.specialize(key, layout)?;
 
-        desc.label = Some("mesh_custom_pipeline".into());
+        desc.label = Some("oit_draw_mesh_pipeline".into());
 
         let mut layout = match key.msaa_samples() {
             1 => vec![self.mesh_pipeline.view_layout.clone()],
@@ -119,9 +120,9 @@ impl SpecializedMeshPipeline for CustomPipeline {
         let oit_layer_def = ShaderDefVal::Int("OIT_LAYERS".to_string(), OIT_LAYERS as i32);
 
         desc.layout = layout;
-        desc.vertex.shader = CUSTOM_DRAW_SHADER_HANDLE.typed();
+        desc.vertex.shader = OIT_DRAW_SHADER_HANDLE.typed();
         desc.vertex.shader_defs.push(oit_layer_def.clone());
-        desc.fragment.as_mut().unwrap().shader = CUSTOM_DRAW_SHADER_HANDLE.typed();
+        desc.fragment.as_mut().unwrap().shader = OIT_DRAW_SHADER_HANDLE.typed();
         desc.fragment
             .as_mut()
             .unwrap()
@@ -134,19 +135,19 @@ impl SpecializedMeshPipeline for CustomPipeline {
 
 pub(crate) fn queue_bind_group(
     mut commands: Commands,
-    pipeline: Res<CustomPipeline>,
+    pipeline: Res<OitDrawPipeline>,
     render_device: Res<RenderDevice>,
-    material_uniforms: Res<ComponentUniforms<CustomMaterialUniform>>,
+    material_uniforms: Res<ComponentUniforms<OitMaterialUniform>>,
 ) {
     if let Some(material_uniform) = material_uniforms.binding() {
         let material_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("custom_material_bind_group"),
+            label: Some("oit_material_bind_group"),
             layout: &pipeline.material_bind_group_layout,
             entries: &bind_group_entries![
                 0 => material_uniform,
             ],
         });
-        commands.insert_resource(CustomMaterialBindGroup(material_bind_group));
+        commands.insert_resource(OitMaterialBindGroup(material_bind_group));
     }
 
     if let Some(buffer) = pipeline.oit_layers_buffer.binding() {
@@ -173,19 +174,19 @@ pub(crate) fn queue_bind_group(
 }
 
 #[derive(Resource, Deref)]
-pub(crate) struct RenderOitPipeline(pub(crate) CachedRenderPipelineId);
+pub(crate) struct OitRenderPipeline(pub(crate) CachedRenderPipelineId);
 
 pub(crate) fn queue_render_oit_pipeline(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    pipeline: Res<CustomPipeline>,
+    pipeline: Res<OitDrawPipeline>,
 ) {
     let oit_layer_def = ShaderDefVal::Int("OIT_LAYERS".to_string(), OIT_LAYERS as i32);
     let pipeline_id = pipeline_cache.queue_render_pipeline(
         RenderPipelineDescriptorBuilder::fullscreen()
             .label("render_oit_pipeline")
             .fragment(
-                RENDER_OIT_SHADER_HANDLE.typed(),
+                OIT_RENDER_SHADER_HANDLE.typed(),
                 "fragment",
                 &[ColorTargetState {
                     format: TextureFormat::bevy_default(),
@@ -200,5 +201,5 @@ pub(crate) fn queue_render_oit_pipeline(
             ])
             .build(),
     );
-    commands.insert_resource(RenderOitPipeline(pipeline_id));
+    commands.insert_resource(OitRenderPipeline(pipeline_id));
 }

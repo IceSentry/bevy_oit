@@ -14,20 +14,21 @@ use bevy::{
     },
 };
 
-use super::{
-    pipeline::RenderOitPipeline, CustomPhaseItem, OitLayerIdsBindGroup, OitLayersBindGroup,
+use crate::{
+    oit_plugin::{OitLayerIdsBindGroup, OitLayersBindGroup, OitPhaseItem},
+    pipeline::OitRenderPipeline,
 };
 
 #[derive(Default)]
-pub struct CustomNode;
-impl CustomNode {
-    pub const NAME: &str = "custom_node";
+pub struct OitNode;
+impl OitNode {
+    pub const NAME: &str = "oit_node";
 }
 
-impl ViewNode for CustomNode {
+impl ViewNode for OitNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static RenderPhase<CustomPhaseItem>,
+        &'static RenderPhase<OitPhaseItem>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
@@ -48,7 +49,7 @@ impl ViewNode for CustomNode {
         // render phase
         {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("custom_pass"),
+                label: Some("oit_draw_pass"),
                 color_attachments: &[Some(view_target.get_color_attachment(Operations {
                     load: LoadOp::Load,
                     store: true,
@@ -73,7 +74,7 @@ impl ViewNode for CustomNode {
         // render oit
         // TODO this should probably run after the main transparent pass
         {
-            let pipeline_id = world.resource::<RenderOitPipeline>();
+            let pipeline_id = world.resource::<OitRenderPipeline>();
             let pipeline_cache = world.resource::<PipelineCache>();
             let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
                 return Ok(());
@@ -83,7 +84,7 @@ impl ViewNode for CustomNode {
             let oit_layer_ids_bind_group = world.resource::<OitLayerIdsBindGroup>();
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("render_oit_pass"),
+                label: Some("oit_render_pass"),
                 color_attachments: &[Some(view_target.get_color_attachment(Operations {
                     load: LoadOp::Load,
                     store: true,

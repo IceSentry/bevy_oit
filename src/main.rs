@@ -4,8 +4,7 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef},
     window::WindowResolution,
 };
-use bevy_oit::custom_phase::{CustomMaterial, CustomMaterialMeshBundle, CustomRenderPhasePlugin};
-use bevy_oit::oit_phase::{OitMaterial, OitMesh};
+use bevy_oit::oit_plugin::{OitMaterial, OitMaterialMeshBundle, OitPlugin};
 use camera_controller::{CameraController, CameraControllerPlugin};
 
 mod camera_controller;
@@ -27,30 +26,19 @@ fn main() {
                 ..default()
             }),
             MaterialPlugin::<GoochMaterial>::default(),
-            // OitMeshPlugin,
-            // OitPlugin,
             CameraControllerPlugin,
-            CustomRenderPhasePlugin,
+            OitPlugin,
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, mat)
         .run();
-}
-
-#[derive(Bundle, Clone, Default)]
-pub struct OitBundle {
-    pub mesh: Handle<Mesh>,
-    pub material: OitMaterial,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub visibility: Visibility,
-    pub computed_visibility: ComputedVisibility,
-    pub tag: OitMesh,
 }
 
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<GoochMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
         Camera3dBundle {
@@ -78,8 +66,8 @@ fn setup(
 
     let sphere_handle = meshes.add(UVSphere::default().into());
 
-    // OIT
-    commands.spawn(OitBundle {
+    // oit material
+    commands.spawn(OitMaterialMeshBundle {
         mesh: sphere_handle.clone(),
         material: OitMaterial {
             base_color: Color::RED.with_a(0.5),
@@ -87,7 +75,7 @@ fn setup(
         transform: Transform::from_translation(pos_a - offset),
         ..default()
     });
-    commands.spawn(OitBundle {
+    commands.spawn(OitMaterialMeshBundle {
         mesh: sphere_handle.clone(),
         material: OitMaterial {
             base_color: Color::GREEN.with_a(0.5),
@@ -95,35 +83,9 @@ fn setup(
         transform: Transform::from_translation(pos_b - offset),
         ..default()
     });
-    commands.spawn(OitBundle {
+    commands.spawn(OitMaterialMeshBundle {
         mesh: sphere_handle.clone(),
         material: OitMaterial {
-            base_color: Color::BLUE.with_a(0.5),
-        },
-        transform: Transform::from_translation(pos_c - offset),
-        ..default()
-    });
-
-    // custom material
-    commands.spawn(CustomMaterialMeshBundle {
-        mesh: sphere_handle.clone(),
-        material: CustomMaterial {
-            base_color: Color::RED.with_a(0.5),
-        },
-        transform: Transform::from_translation(pos_a - offset),
-        ..default()
-    });
-    commands.spawn(CustomMaterialMeshBundle {
-        mesh: sphere_handle.clone(),
-        material: CustomMaterial {
-            base_color: Color::GREEN.with_a(0.5),
-        },
-        transform: Transform::from_translation(pos_b - offset),
-        ..default()
-    });
-    commands.spawn(CustomMaterialMeshBundle {
-        mesh: sphere_handle.clone(),
-        material: CustomMaterial {
             base_color: Color::BLUE.with_a(0.5),
         },
         transform: Transform::from_translation(pos_c - offset),
@@ -155,6 +117,23 @@ fn setup(
         transform: Transform::from_translation(pos_c + offset),
         ..default()
     });
+
+    // Bunny
+    // commands.spawn(SceneBundle {
+    //     scene: asset_server.load("bunny.glb#Scene0"),
+    //     ..default()
+    // });
+}
+
+fn mat(mut commands: Commands, q: Query<Entity, With<Handle<StandardMaterial>>>) {
+    for e in &q {
+        commands
+            .entity(e)
+            .remove::<Handle<StandardMaterial>>()
+            .insert(OitMaterial {
+                base_color: Color::WHITE.with_a(0.5),
+            });
+    }
 }
 
 #[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
