@@ -138,32 +138,38 @@ pub(crate) fn queue_bind_group(
     render_device: Res<RenderDevice>,
     material_uniforms: Res<ComponentUniforms<CustomMaterialUniform>>,
 ) {
-    let material_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-        label: Some("custom_material_bind_group"),
-        layout: &pipeline.material_bind_group_layout,
-        entries: &bind_group_entries![
-            0 => material_uniforms.binding().unwrap(),
-        ],
-    });
-    commands.insert_resource(CustomMaterialBindGroup(material_bind_group));
+    if let Some(material_uniform) = material_uniforms.binding() {
+        let material_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("custom_material_bind_group"),
+            layout: &pipeline.material_bind_group_layout,
+            entries: &bind_group_entries![
+                0 => material_uniform,
+            ],
+        });
+        commands.insert_resource(CustomMaterialBindGroup(material_bind_group));
+    }
 
-    let oit_layers_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-        label: Some("oit_layers_bind_group"),
-        layout: &pipeline.oit_layers_bind_group_layout,
-        entries: &bind_group_entries![
-            0 => pipeline.oit_layers_buffer.binding().unwrap(),
-        ],
-    });
-    commands.insert_resource(OitLayersBindGroup(oit_layers_bind_group));
+    if let Some(buffer) = pipeline.oit_layers_buffer.binding() {
+        let oit_layers_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("oit_layers_bind_group"),
+            layout: &pipeline.oit_layers_bind_group_layout,
+            entries: &bind_group_entries![
+                0 => buffer,
+            ],
+        });
+        commands.insert_resource(OitLayersBindGroup(oit_layers_bind_group));
+    }
 
-    let oit_layer_ids_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-        label: Some("oit_layer_ids_bind_group_layout"),
-        layout: &pipeline.oit_layer_ids_bind_group_layout,
-        entries: &bind_group_entries![
-            0 => pipeline.oit_layer_ids_buffer.binding().unwrap(),
-        ],
-    });
-    commands.insert_resource(OitLayerIdsBindGroup(oit_layer_ids_bind_group));
+    if let Some(buffer) = pipeline.oit_layer_ids_buffer.binding() {
+        let oit_layer_ids_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("oit_layer_ids_bind_group_layout"),
+            layout: &pipeline.oit_layer_ids_bind_group_layout,
+            entries: &bind_group_entries![
+                0 => buffer,
+            ],
+        });
+        commands.insert_resource(OitLayerIdsBindGroup(oit_layer_ids_bind_group));
+    }
 }
 
 #[derive(Resource, Deref)]
