@@ -14,10 +14,7 @@ use bevy::{
     },
 };
 
-use crate::{
-    oit_plugin::{OitLayerIdsBindGroup, OitLayersBindGroup, OitPhaseItem},
-    pipeline::OitRenderPipeline,
-};
+use crate::{pipeline::OitRenderPipeline, OitLayerIdsBindGroup, OitLayersBindGroup, OitPhaseItem};
 
 #[derive(Default)]
 pub struct OitNode;
@@ -46,7 +43,7 @@ impl ViewNode for OitNode {
             return Ok(());
         }
 
-        // render phase
+        // oit draw phase
         {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("oit_draw_pass"),

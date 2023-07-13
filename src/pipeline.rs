@@ -16,13 +16,9 @@ use bevy::{
 };
 
 use crate::{
-    bind_group_entries, bind_group_layout_entries,
-    oit_plugin::{
-        OitLayerIdsBindGroup, OitLayersBindGroup, OitMaterialBindGroup, OitMaterialUniform,
-        OIT_DRAW_SHADER_HANDLE, OIT_RENDER_SHADER_HANDLE,
-    },
-    utils::RenderPipelineDescriptorBuilder,
-    OIT_LAYERS, WINDOW_HEIGHT, WINDOW_WIDTH,
+    bind_group_entries, bind_group_layout_entries, utils::RenderPipelineDescriptorBuilder,
+    OitLayerIdsBindGroup, OitLayersBindGroup, OitMaterialBindGroup, OitMaterialUniform,
+    OIT_DRAW_SHADER_HANDLE, OIT_LAYERS, OIT_RENDER_SHADER_HANDLE, WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 
 #[derive(Resource)]

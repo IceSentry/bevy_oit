@@ -4,7 +4,7 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef},
     window::WindowResolution,
 };
-use bevy_oit::oit_plugin::{OitMaterial, OitMaterialMeshBundle, OitPlugin};
+use bevy_oit::{OitMaterial, OitMaterialMeshBundle, OitPlugin};
 use camera_controller::{CameraController, CameraControllerPlugin};
 
 mod camera_controller;
