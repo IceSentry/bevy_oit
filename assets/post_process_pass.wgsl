@@ -31,7 +31,6 @@ fn vertex(@builtin(vertex_index) vertex_index: u32) -> FullscreenVertexOutput {
     return FullscreenVertexOutput(clip_position, uv);
 }
 
-
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let color = textureSample(screen_texture, texture_sampler, in.uv);

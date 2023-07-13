@@ -64,25 +64,26 @@ fn gooch_shading(normal: vec3<f32>) -> vec3<f32> {
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let screen_index = i32(floor(in.position.x + in.position.y * view.viewport.z));
-
-    let buffer_size = i32(floor(view.viewport.z * view.viewport.w));
-
-    // TODO look into tail blending when counter becomes larger than oit_layers
-    var abidx = atomicLoad(&layer_ids[screen_index]);
-    abidx += 1;
-    abidx = clamp(abidx, 0, i32(oit_layers));
-    atomicStore(&layer_ids[screen_index], abidx);
-
-    let layer_index = screen_index + (abidx - 1) * buffer_size;
-
     let shading = gooch_shading(in.world_normal);
     var color = material.base_color.rgb;
     color *= shading;
-    layers[i32((in.position.x + in.position.y * view.viewport.z) + (f32(abidx - 1) * view.viewport.z * view.viewport.w))] = vec4(color, in.position.z);
+
+    let screen_index = i32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
+    let buffer_size = i32(view.viewport.z * view.viewport.w);
+
+    var layer_id = atomicAdd(&layer_ids[screen_index], 1);
+    if layer_id >= oit_layers {
+        atomicStore(&layer_ids[screen_index], oit_layers);
+        layer_id = oit_layers;
+
+        // tail blend
+        return vec4(color * material.base_color.a, material.base_color.a);
+    }
+
+    let layer_index = screen_index + layer_id * buffer_size;
+    layers[layer_index] = vec4(color, in.position.z);
 
     // we don't want to actually render anything here
     discard;
-    // return material.color;
 }
 

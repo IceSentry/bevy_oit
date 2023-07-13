@@ -6,19 +6,22 @@ use bevy::{
         mesh::MeshVertexBufferLayout,
         render_resource::{
             BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor, BindingType,
-            BufferBindingType, RenderPipelineDescriptor, ShaderDefVal, ShaderStages, ShaderType,
-            SpecializedMeshPipeline, SpecializedMeshPipelineError, StorageBuffer,
+            BufferBindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites,
+            PipelineCache, RenderPipelineDescriptor, ShaderDefVal, ShaderStages, ShaderType,
+            SpecializedMeshPipeline, SpecializedMeshPipelineError, StorageBuffer, TextureFormat,
         },
         renderer::{RenderDevice, RenderQueue},
+        texture::BevyDefault,
     },
 };
 
 use super::{
     CustomMaterialBindGroup, CustomMaterialUniform, OitLayerIdsBindGroup, OitLayersBindGroup,
-    CUSTOM_DRAW_SHADER_HANDLE,
+    CLEAR_OIT_SHADER_HANDLE, CUSTOM_DRAW_SHADER_HANDLE, RENDER_OIT_SHADER_HANDLE,
 };
 use crate::{
-    bind_group_entries, bind_group_layout_entries, OIT_LAYERS, WINDOW_HEIGHT, WINDOW_WIDTH,
+    bind_group_entries, bind_group_layout_entries, utils::RenderPipelineDescriptorBuilder,
+    OIT_LAYERS, WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 
 #[derive(Resource)]
@@ -153,12 +156,73 @@ pub(crate) fn queue_bind_group(
     });
     commands.insert_resource(OitLayersBindGroup(oit_layers_bind_group));
 
-    let oit_layers_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+    let oit_layer_ids_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: Some("oit_layer_ids_bind_group_layout"),
         layout: &pipeline.oit_layer_ids_bind_group_layout,
         entries: &bind_group_entries![
             0 => pipeline.oit_layer_ids_buffer.binding().unwrap(),
         ],
     });
-    commands.insert_resource(OitLayerIdsBindGroup(oit_layers_bind_group));
+    commands.insert_resource(OitLayerIdsBindGroup(oit_layer_ids_bind_group));
+}
+
+#[derive(Resource, Deref)]
+pub(crate) struct RenderOitPipeline(pub(crate) CachedRenderPipelineId);
+
+pub(crate) fn queue_render_oit_pipeline(
+    mut commands: Commands,
+    pipeline_cache: Res<PipelineCache>,
+    pipeline: Res<CustomPipeline>,
+) {
+    let oit_layer_def = ShaderDefVal::Int("OIT_LAYERS".to_string(), OIT_LAYERS as i32);
+    let pipeline_id = pipeline_cache.queue_render_pipeline(
+        RenderPipelineDescriptorBuilder::fullscreen()
+            .label("render_oit_pipeline")
+            .fragment(
+                RENDER_OIT_SHADER_HANDLE.typed(),
+                "fragment",
+                &[ColorTargetState {
+                    format: TextureFormat::bevy_default(),
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                }],
+                &[oit_layer_def],
+            )
+            .layout(vec![
+                pipeline.oit_layers_bind_group_layout.clone(),
+                pipeline.oit_layer_ids_bind_group_layout.clone(),
+            ])
+            .build(),
+    );
+    commands.insert_resource(RenderOitPipeline(pipeline_id));
+}
+
+#[derive(Resource, Deref)]
+pub(crate) struct ClearOitPipeline(pub(crate) CachedRenderPipelineId);
+
+pub(crate) fn queue_clear_oit_pipeline(
+    mut commands: Commands,
+    pipeline_cache: Res<PipelineCache>,
+    pipeline: Res<CustomPipeline>,
+) {
+    let pipeline_id = pipeline_cache.queue_render_pipeline(
+        RenderPipelineDescriptorBuilder::fullscreen()
+            .label("clear_oit_pipeline")
+            .fragment(
+                CLEAR_OIT_SHADER_HANDLE.typed(),
+                "fragment",
+                &[ColorTargetState {
+                    format: TextureFormat::bevy_default(),
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                }],
+                &[],
+            )
+            .layout(vec![
+                pipeline.oit_layers_bind_group_layout.clone(),
+                pipeline.oit_layer_ids_bind_group_layout.clone(),
+            ])
+            .build(),
+    );
+    commands.insert_resource(ClearOitPipeline(pipeline_id));
 }

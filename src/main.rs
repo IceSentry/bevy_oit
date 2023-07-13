@@ -14,7 +14,7 @@ mod camera_controller;
 
 fn main() {
     App::new()
-        // .insert_resource(Msaa::Off)
+        .insert_resource(Msaa::Off)
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {

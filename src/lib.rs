@@ -8,5 +8,4 @@ pub mod oit_node;
 pub mod oit_phase;
 pub mod oit_plugin;
 pub mod post_process_pass;
-pub mod render_oit;
 mod utils;

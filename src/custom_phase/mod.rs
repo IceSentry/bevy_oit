@@ -39,6 +39,12 @@ mod pipeline;
 const CUSTOM_DRAW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5948657369088000);
 
+const RENDER_OIT_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1612685519093760);
+
+const CLEAR_OIT_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7889507137355776);
+
 pub struct CustomRenderPhasePlugin;
 impl Plugin for CustomRenderPhasePlugin {
     fn build(&self, app: &mut App) {
@@ -46,6 +52,18 @@ impl Plugin for CustomRenderPhasePlugin {
             app,
             CUSTOM_DRAW_SHADER_HANDLE,
             "custom_draw.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            RENDER_OIT_SHADER_HANDLE,
+            "render_oit.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            CLEAR_OIT_SHADER_HANDLE,
+            "clear.wgsl",
             Shader::from_wgsl
         );
 
@@ -71,6 +89,8 @@ impl Plugin for CustomRenderPhasePlugin {
                     sort_phase_system::<CustomPhaseItem>.in_set(RenderSet::PhaseSort),
                     queue_mesh_custom_phase.in_set(RenderSet::Queue),
                     pipeline::queue_bind_group.in_set(RenderSet::Queue),
+                    pipeline::queue_render_oit_pipeline.in_set(RenderSet::Queue),
+                    pipeline::queue_clear_oit_pipeline.in_set(RenderSet::Queue),
                 ),
             );
 
