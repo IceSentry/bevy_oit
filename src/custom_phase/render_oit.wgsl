@@ -29,9 +29,11 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     let counter = atomicLoad(&layer_ids[screen_index]);
     if counter == 0 {
+        clear(screen_index);
         discard;
     } else {
         let final_color = sort(screen_index, buffer_size);
+        clear(screen_index);
         return final_color;
     }
 
@@ -43,6 +45,11 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     //     let x = f32(counter) / 8.0;
     //     return vec4(x, x, x, 1.0);
     // }
+}
+
+fn clear(screen_index: i32) {
+    atomicStore(&layer_ids[screen_index], 0);
+    layers[screen_index] = vec4(0.0);
 }
 
 fn sort(screen_index: i32, buffer_size: i32) -> vec4<f32> {

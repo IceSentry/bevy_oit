@@ -15,8 +15,7 @@ use bevy::{
 };
 
 use super::{
-    pipeline::{ClearOitPipeline, RenderOitPipeline},
-    CustomPhaseItem, OitLayerIdsBindGroup, OitLayersBindGroup,
+    pipeline::RenderOitPipeline, CustomPhaseItem, OitLayerIdsBindGroup, OitLayersBindGroup,
 };
 
 #[derive(Default)]
@@ -44,32 +43,6 @@ impl ViewNode for CustomNode {
 
         if render_phase.items.is_empty() {
             return Ok(());
-        }
-
-        // clear buffers
-        {
-            let pipeline_id = world.resource::<ClearOitPipeline>();
-            let pipeline_cache = world.resource::<PipelineCache>();
-            let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
-                return Ok(());
-            };
-
-            let oit_layers_bind_group = world.resource::<OitLayersBindGroup>();
-            let oit_layer_ids_bind_group = world.resource::<OitLayerIdsBindGroup>();
-
-            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("clear_oit_pass"),
-                color_attachments: &[Some(view_target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }))],
-                depth_stencil_attachment: None,
-            });
-
-            render_pass.set_render_pipeline(pipeline);
-            render_pass.set_bind_group(0, oit_layers_bind_group, &[]);
-            render_pass.set_bind_group(1, oit_layer_ids_bind_group, &[]);
-            render_pass.draw(0..3, 0..1);
         }
 
         // render phase

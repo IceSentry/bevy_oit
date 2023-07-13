@@ -17,7 +17,7 @@ use bevy::{
 
 use super::{
     CustomMaterialBindGroup, CustomMaterialUniform, OitLayerIdsBindGroup, OitLayersBindGroup,
-    CLEAR_OIT_SHADER_HANDLE, CUSTOM_DRAW_SHADER_HANDLE, RENDER_OIT_SHADER_HANDLE,
+    CUSTOM_DRAW_SHADER_HANDLE, RENDER_OIT_SHADER_HANDLE,
 };
 use crate::{
     bind_group_entries, bind_group_layout_entries, utils::RenderPipelineDescriptorBuilder,
@@ -195,34 +195,4 @@ pub(crate) fn queue_render_oit_pipeline(
             .build(),
     );
     commands.insert_resource(RenderOitPipeline(pipeline_id));
-}
-
-#[derive(Resource, Deref)]
-pub(crate) struct ClearOitPipeline(pub(crate) CachedRenderPipelineId);
-
-pub(crate) fn queue_clear_oit_pipeline(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    pipeline: Res<CustomPipeline>,
-) {
-    let pipeline_id = pipeline_cache.queue_render_pipeline(
-        RenderPipelineDescriptorBuilder::fullscreen()
-            .label("clear_oit_pipeline")
-            .fragment(
-                CLEAR_OIT_SHADER_HANDLE.typed(),
-                "fragment",
-                &[ColorTargetState {
-                    format: TextureFormat::bevy_default(),
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }],
-                &[],
-            )
-            .layout(vec![
-                pipeline.oit_layers_bind_group_layout.clone(),
-                pipeline.oit_layer_ids_bind_group_layout.clone(),
-            ])
-            .build(),
-    );
-    commands.insert_resource(ClearOitPipeline(pipeline_id));
 }
