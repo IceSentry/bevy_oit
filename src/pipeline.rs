@@ -190,7 +190,11 @@ pub(crate) fn queue_render_oit_pipeline(
                 "fragment",
                 &[ColorTargetState {
                     format: TextureFormat::bevy_default(),
-                    blend: None,
+                    blend: Some(BlendState {
+                        color: BlendComponent::OVER,
+                        alpha: BlendComponent::OVER,
+                    }),
+                    // blend: None,
                     write_mask: ColorWrites::ALL,
                 }],
                 &[oit_layer_def],
