@@ -77,7 +77,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         layer_id = oit_layers;
 
         // tail blend
-        return vec4(color * material.base_color.a, material.base_color.a);
+        // TODO this doesn't seem to work correctly right now
+        // return vec4(color, material.base_color.a);
     }
 
     let layer_index = screen_index + layer_id * buffer_size;

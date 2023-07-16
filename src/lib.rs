@@ -137,11 +137,11 @@ impl CachedRenderPipelinePhaseItem for OitPhaseItem {
 }
 
 #[derive(Resource, Deref)]
-pub(crate) struct OitMaterialBindGroup(pub(crate) BindGroup);
+pub(crate) struct OitMaterialUniformsBindGroup(pub(crate) BindGroup);
 
 struct SetMaterialBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMaterialBindGroup<I> {
-    type Param = SRes<OitMaterialBindGroup>;
+    type Param = SRes<OitMaterialUniformsBindGroup>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<DynamicUniformIndex<OitMaterialUniform>>;
 

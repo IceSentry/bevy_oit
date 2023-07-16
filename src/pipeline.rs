@@ -6,9 +6,10 @@ use bevy::{
         mesh::MeshVertexBufferLayout,
         render_resource::{
             BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor, BindingType,
-            BufferBindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites,
-            PipelineCache, RenderPipelineDescriptor, ShaderDefVal, ShaderStages, ShaderType,
-            SpecializedMeshPipeline, SpecializedMeshPipelineError, StorageBuffer, TextureFormat,
+            BlendComponent, BlendState, BufferBindingType, CachedRenderPipelineId,
+            ColorTargetState, ColorWrites, PipelineCache, RenderPipelineDescriptor, ShaderDefVal,
+            ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+            StorageBuffer, TextureFormat,
         },
         renderer::{RenderDevice, RenderQueue},
         texture::BevyDefault,
@@ -17,7 +18,7 @@ use bevy::{
 
 use crate::{
     bind_group_entries, bind_group_layout_entries, utils::RenderPipelineDescriptorBuilder,
-    OitLayerIdsBindGroup, OitLayersBindGroup, OitMaterialBindGroup, OitMaterialUniform,
+    OitLayerIdsBindGroup, OitLayersBindGroup, OitMaterialUniform, OitMaterialUniformsBindGroup,
     OIT_DRAW_SHADER_HANDLE, OIT_LAYERS, OIT_RENDER_SHADER_HANDLE, WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 
@@ -38,7 +39,7 @@ impl FromWorld for OitDrawPipeline {
 
         let material_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("oit_bind_group_layout"),
+                label: Some("oit_material_bind_group_layout"),
                 entries: &bind_group_layout_entries![
                     0 => (ShaderStages::FRAGMENT, BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
@@ -118,12 +119,15 @@ impl SpecializedMeshPipeline for OitDrawPipeline {
         desc.layout = layout;
         desc.vertex.shader = OIT_DRAW_SHADER_HANDLE.typed();
         desc.vertex.shader_defs.push(oit_layer_def.clone());
-        desc.fragment.as_mut().unwrap().shader = OIT_DRAW_SHADER_HANDLE.typed();
-        desc.fragment
-            .as_mut()
-            .unwrap()
-            .shader_defs
-            .push(oit_layer_def);
+        if let Some(frag) = desc.fragment.as_mut() {
+            frag.shader = OIT_DRAW_SHADER_HANDLE.typed();
+            frag.shader_defs.push(oit_layer_def);
+            // this might be required for tail blending but it makes no difference right now
+            // frag.targets[0].as_mut().unwrap().blend = Some(BlendState {
+            //     color: BlendComponent::OVER,
+            //     alpha: BlendComponent::OVER,
+            // });
+        }
 
         Ok(desc)
     }
@@ -135,37 +139,37 @@ pub(crate) fn queue_bind_group(
     render_device: Res<RenderDevice>,
     material_uniforms: Res<ComponentUniforms<OitMaterialUniform>>,
 ) {
-    if let Some(material_uniform) = material_uniforms.binding() {
-        let material_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+    if let Some(material_uniforms) = material_uniforms.binding() {
+        let material_uniforms_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             label: Some("oit_material_bind_group"),
             layout: &pipeline.material_bind_group_layout,
             entries: &bind_group_entries![
-                0 => material_uniform,
+                0 => material_uniforms,
             ],
         });
-        commands.insert_resource(OitMaterialBindGroup(material_bind_group));
+        commands.insert_resource(OitMaterialUniformsBindGroup(material_uniforms_bind_group));
     }
 
     if let Some(buffer) = pipeline.oit_layers_buffer.binding() {
-        let oit_layers_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             label: Some("oit_layers_bind_group"),
             layout: &pipeline.oit_layers_bind_group_layout,
             entries: &bind_group_entries![
                 0 => buffer,
             ],
         });
-        commands.insert_resource(OitLayersBindGroup(oit_layers_bind_group));
+        commands.insert_resource(OitLayersBindGroup(bind_group));
     }
 
     if let Some(buffer) = pipeline.oit_layer_ids_buffer.binding() {
-        let oit_layer_ids_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             label: Some("oit_layer_ids_bind_group_layout"),
             layout: &pipeline.oit_layer_ids_bind_group_layout,
             entries: &bind_group_entries![
                 0 => buffer,
             ],
         });
-        commands.insert_resource(OitLayerIdsBindGroup(oit_layer_ids_bind_group));
+        commands.insert_resource(OitLayerIdsBindGroup(bind_group));
     }
 }
 
