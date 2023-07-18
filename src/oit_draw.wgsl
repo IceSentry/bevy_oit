@@ -66,7 +66,7 @@ fn gooch_shading(normal: vec3<f32>) -> vec3<f32> {
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let shading = gooch_shading(in.world_normal);
     var color = material.base_color.rgb;
-    color *= shading;
+    // color *= shading;
 
     let screen_index = i32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
     let buffer_size = i32(view.viewport.z * view.viewport.w);

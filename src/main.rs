@@ -35,10 +35,14 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
+struct KeepMaterial;
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<GoochMaterial>>,
+    mut std_materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
@@ -67,72 +71,87 @@ fn setup(
 
     let sphere_handle = meshes.add(UVSphere::default().into());
 
+    commands
+        .spawn(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: std_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            transform: Transform::from_xyz(0.0, 0.0, 1.0),
+            ..default()
+        })
+        .insert(KeepMaterial);
+
     // oit material
-    commands.spawn(OitMaterialMeshBundle {
-        mesh: sphere_handle.clone(),
-        material: OitMaterial {
-            base_color: Color::RED.with_a(0.5),
-        },
-        transform: Transform::from_translation(pos_a - offset),
-        ..default()
-    });
-    commands.spawn(OitMaterialMeshBundle {
-        mesh: sphere_handle.clone(),
-        material: OitMaterial {
-            base_color: Color::GREEN.with_a(0.5),
-        },
-        transform: Transform::from_translation(pos_b - offset),
-        ..default()
-    });
-    commands.spawn(OitMaterialMeshBundle {
-        mesh: sphere_handle.clone(),
-        material: OitMaterial {
-            base_color: Color::BLUE.with_a(0.5),
-        },
-        transform: Transform::from_translation(pos_c - offset),
-        ..default()
-    });
-
-    // Alpha Blend
-    commands.spawn(MaterialMeshBundle {
-        mesh: sphere_handle.clone(),
-        material: materials.add(GoochMaterial {
-            base_color: Color::RED.with_a(0.5),
-        }),
-        transform: Transform::from_translation(pos_a + offset),
-        ..default()
-    });
-    commands.spawn(MaterialMeshBundle {
-        mesh: sphere_handle.clone(),
-        material: materials.add(GoochMaterial {
-            base_color: Color::GREEN.with_a(0.5),
-        }),
-        transform: Transform::from_translation(pos_b + offset),
-        ..default()
-    });
-    commands.spawn(MaterialMeshBundle {
-        mesh: sphere_handle,
-        material: materials.add(GoochMaterial {
-            base_color: Color::BLUE.with_a(0.5),
-        }),
-        transform: Transform::from_translation(pos_c + offset),
-        ..default()
-    });
-
-    // Bunny
-    // commands.spawn(SceneBundle {
-    //     scene: asset_server.load("bunny.glb#Scene0"),
+    // commands.spawn(OitMaterialMeshBundle {
+    //     mesh: sphere_handle.clone(),
+    //     material: OitMaterial {
+    //         base_color: Color::RED.with_a(0.5),
+    //     },
+    //     transform: Transform::from_translation(pos_a - offset),
     //     ..default()
     // });
+    // commands.spawn(OitMaterialMeshBundle {
+    //     mesh: sphere_handle.clone(),
+    //     material: OitMaterial {
+    //         base_color: Color::GREEN.with_a(0.5),
+    //     },
+    //     transform: Transform::from_translation(pos_b - offset),
+    //     ..default()
+    // });
+    // commands.spawn(OitMaterialMeshBundle {
+    //     mesh: sphere_handle.clone(),
+    //     material: OitMaterial {
+    //         base_color: Color::BLUE.with_a(0.5),
+    //     },
+    //     transform: Transform::from_translation(pos_c - offset),
+    //     ..default()
+    // });
+
+    // Alpha Blend
+    // commands.spawn(MaterialMeshBundle {
+    //     mesh: sphere_handle.clone(),
+    //     material: materials.add(GoochMaterial {
+    //         base_color: Color::RED.with_a(0.5),
+    //     }),
+    //     transform: Transform::from_translation(pos_a + offset),
+    //     ..default()
+    // });
+    // commands.spawn(MaterialMeshBundle {
+    //     mesh: sphere_handle.clone(),
+    //     material: materials.add(GoochMaterial {
+    //         base_color: Color::GREEN.with_a(0.5),
+    //     }),
+    //     transform: Transform::from_translation(pos_b + offset),
+    //     ..default()
+    // });
+    // commands.spawn(MaterialMeshBundle {
+    //     mesh: sphere_handle,
+    //     material: materials.add(GoochMaterial {
+    //         base_color: Color::BLUE.with_a(0.5),
+    //     }),
+    //     transform: Transform::from_translation(pos_c + offset),
+    //     ..default()
+    // });
+
+    commands.spawn(SceneBundle {
+        scene: asset_server.load("dragon.glb#Scene0"),
+        ..default()
+    });
 }
 
-fn mat(mut commands: Commands, q: Query<Entity, With<Handle<StandardMaterial>>>) {
+fn mat(
+    mut commands: Commands,
+    q: Query<Entity, (With<Handle<StandardMaterial>>, Without<KeepMaterial>)>,
+    mut materials: ResMut<Assets<GoochMaterial>>,
+) {
     for e in &q {
         commands
             .entity(e)
             .remove::<Handle<StandardMaterial>>()
+            // .insert(materials.add(GoochMaterial {
+            //     base_color: Color::WHITE.with_a(0.5),
+            // }))
             .insert(OitMaterial {
-                base_color: Color::WHITE.with_a(0.5),
+                base_color: Color::GREEN.with_a(0.1),
             });
     }
 }

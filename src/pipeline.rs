@@ -1,14 +1,16 @@
 use bevy::{
     pbr::{MeshPipeline, MeshPipelineKey},
     prelude::*,
+    reflect::erased_serde::__private::serde::__private::de,
     render::{
         extract_component::ComponentUniforms,
         mesh::MeshVertexBufferLayout,
         render_resource::{
             BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor, BindingType,
             BlendComponent, BlendState, BufferBindingType, CachedRenderPipelineId,
-            ColorTargetState, ColorWrites, PipelineCache, RenderPipelineDescriptor, ShaderDefVal,
-            ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+            ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
+            PipelineCache, RenderPipelineDescriptor, ShaderDefVal, ShaderStages, ShaderType,
+            SpecializedMeshPipeline, SpecializedMeshPipelineError, StencilFaceState, StencilState,
             StorageBuffer, TextureFormat,
         },
         renderer::{RenderDevice, RenderQueue},
@@ -32,21 +34,32 @@ pub struct OitDrawPipeline {
     pub(crate) oit_layer_ids_buffer: StorageBuffer<Vec<i32>>,
 }
 
+// #[derive(AsBindGroup)]
+// struct OitMaterialBindGroup {
+//     #[uniform(0)]
+//     buffer: OitMaterialUniform,
+// }
+
 impl FromWorld for OitDrawPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let render_queue = world.resource::<RenderQueue>();
 
+        // let material_bind_group_layout = OitMaterialBindGroup::bind_group_layout(render_device);
+
         let material_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("oit_material_bind_group_layout"),
-                entries: &bind_group_layout_entries![
-                    0 => (ShaderStages::FRAGMENT, BindingType::Buffer {
+                entries: &[bevy::render::render_resource::BindGroupLayoutEntry {
+                    binding: 0,
+                    ty: (BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
                         min_binding_size: Some(OitMaterialUniform::min_size()),
                     }),
-                ],
+                    visibility: (ShaderStages::FRAGMENT),
+                    count: None,
+                }],
             });
 
         let oit_layers_bind_group_layout =
@@ -122,11 +135,6 @@ impl SpecializedMeshPipeline for OitDrawPipeline {
         if let Some(frag) = desc.fragment.as_mut() {
             frag.shader = OIT_DRAW_SHADER_HANDLE.typed();
             frag.shader_defs.push(oit_layer_def);
-            // this might be required for tail blending but it makes no difference right now
-            // frag.targets[0].as_mut().unwrap().blend = Some(BlendState {
-            //     color: BlendComponent::OVER,
-            //     alpha: BlendComponent::OVER,
-            // });
         }
 
         Ok(desc)
@@ -182,28 +190,44 @@ pub(crate) fn queue_render_oit_pipeline(
     pipeline: Res<OitDrawPipeline>,
 ) {
     let oit_layer_def = ShaderDefVal::Int("OIT_LAYERS".to_string(), OIT_LAYERS as i32);
-    let pipeline_id = pipeline_cache.queue_render_pipeline(
-        RenderPipelineDescriptorBuilder::fullscreen()
-            .label("render_oit_pipeline")
-            .fragment(
-                OIT_RENDER_SHADER_HANDLE.typed(),
-                "fragment",
-                &[ColorTargetState {
-                    format: TextureFormat::bevy_default(),
-                    blend: Some(BlendState {
-                        color: BlendComponent::OVER,
-                        alpha: BlendComponent::OVER,
-                    }),
-                    // blend: None,
-                    write_mask: ColorWrites::ALL,
-                }],
-                &[oit_layer_def],
-            )
-            .layout(vec![
-                pipeline.oit_layers_bind_group_layout.clone(),
-                pipeline.oit_layer_ids_bind_group_layout.clone(),
-            ])
-            .build(),
-    );
+    let desc = RenderPipelineDescriptorBuilder::fullscreen()
+        .label("render_oit_pipeline")
+        .depth_stencil(DepthStencilState {
+            format: TextureFormat::Depth32Float,
+            depth_write_enabled: false,
+            depth_compare: CompareFunction::GreaterEqual,
+            stencil: StencilState {
+                front: StencilFaceState::IGNORE,
+                back: StencilFaceState::IGNORE,
+                read_mask: 0,
+                write_mask: 0,
+            },
+            bias: DepthBiasState {
+                constant: 0,
+                slope_scale: 0.0,
+                clamp: 0.0,
+            },
+        })
+        .fragment(
+            OIT_RENDER_SHADER_HANDLE.typed(),
+            "fragment",
+            &[ColorTargetState {
+                format: TextureFormat::bevy_default(),
+                blend: Some(BlendState {
+                    color: BlendComponent::OVER,
+                    alpha: BlendComponent::OVER,
+                }),
+                // blend: None,
+                write_mask: ColorWrites::ALL,
+            }],
+            &[oit_layer_def],
+        )
+        .layout(vec![
+            pipeline.oit_layers_bind_group_layout.clone(),
+            pipeline.oit_layer_ids_bind_group_layout.clone(),
+        ])
+        .build();
+
+    let pipeline_id = pipeline_cache.queue_render_pipeline(desc);
     commands.insert_resource(OitRenderPipeline(pipeline_id));
 }

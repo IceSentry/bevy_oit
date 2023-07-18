@@ -62,8 +62,8 @@ fn sort(screen_index: i32, buffer_size: i32) -> vec4<f32> {
 
     // bubble sort
     for (var i = counter; i >= 0; i -= 1){
-        for (var j = 0; j <= i; j += 1) {
-            if fragment_list[j].w < fragment_list[j + 1].w {
+        for (var j = 0; j < i; j += 1) {
+            if fragment_list[j].w > fragment_list[j + 1].w {
                 let temp = fragment_list[j + 1];
                 fragment_list[j + 1] = fragment_list[j];
                 fragment_list[j] = temp;
@@ -73,14 +73,24 @@ fn sort(screen_index: i32, buffer_size: i32) -> vec4<f32> {
 
     // resolve blend
     var final_color = vec4(0.0);
-    let alpha = 0.5; // TODO should not be fixed
-    for (var i = 0; i < counter; i += 1) {
+    let alpha = 0.1; // TODO should not be fixed
+    for (var i = 0; i <= counter; i += 1) {
+    // for (var i = counter; i >= 0; i -= 1) {
         let frag = fragment_list[i];
 
-        var base_color = frag.rgb * alpha;
-        final_color += vec4(base_color, alpha) * (1.0 - final_color.a);
+        var base_color = vec4(frag.rgb * alpha, alpha);
+
+        // OVER operator using premultiplied alpha
+        // see: https://en.wikipedia.org/wiki/Alpha_compositing
+        var final_color_rgb = final_color.rgb;
+        final_color_rgb += (1.0 - final_color.a) * base_color.rgb;
+        final_color.a += (1.0 - final_color.a) * base_color.a;
+        final_color.r = final_color_rgb.r;
+        final_color.g = final_color_rgb.g;
+        final_color.b = final_color_rgb.b;
     }
-    // final_color += background_color * (1.0 - final_color.a);
+    // TODO consider blending with background manually
+    // final_color += (1.0 - final_color.a) * background;
 
     return final_color;
 }

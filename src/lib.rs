@@ -33,7 +33,7 @@ use crate::{node::OitNode, pipeline::OitDrawPipeline};
 
 pub const WINDOW_WIDTH: usize = 1280;
 pub const WINDOW_HEIGHT: usize = 720;
-pub const OIT_LAYERS: usize = 8;
+pub const OIT_LAYERS: usize = 16;
 
 mod node;
 mod pipeline;
@@ -139,8 +139,8 @@ impl CachedRenderPipelinePhaseItem for OitPhaseItem {
 #[derive(Resource, Deref)]
 pub(crate) struct OitMaterialUniformsBindGroup(pub(crate) BindGroup);
 
-struct SetMaterialBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMaterialBindGroup<I> {
+struct SetOitMaterialBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOitMaterialBindGroup<I> {
     type Param = SRes<OitMaterialUniformsBindGroup>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<DynamicUniformIndex<OitMaterialUniform>>;
@@ -205,7 +205,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOitLayerIdsBindGroup<
 type DrawOit = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetMaterialBindGroup<1>,
+    SetOitMaterialBindGroup<1>,
     SetMeshBindGroup<2>,
     SetOitLayersBindGroup<3>,
     SetOitLayerIdsBindGroup<4>,

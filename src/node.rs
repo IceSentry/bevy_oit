@@ -86,7 +86,14 @@ impl ViewNode for OitNode {
                     load: LoadOp::Load,
                     store: true,
                 }))],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: &depth.view,
+                    depth_ops: Some(Operations {
+                        load: LoadOp::Load,
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
             render_pass.set_render_pipeline(pipeline);

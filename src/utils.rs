@@ -3,9 +3,9 @@ use bevy::{
     prelude::*,
     render::{
         render_resource::{
-            BindGroupLayout, BlendState, ColorTargetState, ColorWrites, FragmentState,
-            MultisampleState, PrimitiveState, RenderPipelineDescriptor, ShaderDefVal,
-            TextureFormat, VertexBufferLayout, VertexState,
+            BindGroupLayout, BlendState, ColorTargetState, ColorWrites, DepthStencilState,
+            FragmentState, MultisampleState, PrimitiveState, RenderPipelineDescriptor,
+            ShaderDefVal, TextureFormat, VertexBufferLayout, VertexState,
         },
         texture::BevyDefault,
     },
@@ -137,6 +137,11 @@ impl RenderPipelineDescriptorBuilder {
 
     pub fn layout(mut self, layouts: Vec<BindGroupLayout>) -> Self {
         self.desc.layout = layouts;
+        self
+    }
+
+    pub fn depth_stencil(mut self, state: DepthStencilState) -> Self {
+        self.desc.depth_stencil = Some(state);
         self
     }
 
