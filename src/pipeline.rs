@@ -1,7 +1,6 @@
 use bevy::{
     pbr::{MeshPipeline, MeshPipelineKey},
     prelude::*,
-    reflect::erased_serde::__private::serde::__private::de,
     render::{
         extract_component::ComponentUniforms,
         mesh::MeshVertexBufferLayout,

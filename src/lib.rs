@@ -27,6 +27,7 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
     utils::FloatOrd,
+    window::WindowResized,
 };
 
 use crate::{node::OitNode, pipeline::OitDrawPipeline};
@@ -70,7 +71,8 @@ impl Plugin for OitPlugin {
         render_app
             .init_resource::<SpecializedMeshPipelines<OitDrawPipeline>>()
             .init_resource::<DrawFunctions<OitPhaseItem>>()
-            .add_render_command::<OitPhaseItem, DrawOit>();
+            .add_render_command::<OitPhaseItem, DrawOit>()
+            .add_systems(Render, on_resize);
 
         render_app
             .add_systems(
@@ -289,7 +291,8 @@ fn queue_mesh_oit_phase(
 
             let key = MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
 
-            let Ok(pipeline) = pipelines.specialize(&pipeline_cache, &pipeline, key, &mesh.layout) else {
+            let Ok(pipeline) = pipelines.specialize(&pipeline_cache, &pipeline, key, &mesh.layout)
+            else {
                 continue;
             };
 
@@ -300,5 +303,11 @@ fn queue_mesh_oit_phase(
                 distance: inv_view_row_2.dot(mesh_uniform.transform.col(3)),
             });
         }
+    }
+}
+
+fn on_resize(mut evs: EventReader<WindowResized>) {
+    for ev in evs.iter() {
+        println!("{:?}", ev);
     }
 }

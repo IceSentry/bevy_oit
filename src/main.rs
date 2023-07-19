@@ -21,7 +21,8 @@ fn main() {
                     resolution: WindowResolution::new(
                         bevy_oit::WINDOW_WIDTH as f32,
                         bevy_oit::WINDOW_HEIGHT as f32,
-                    ),
+                    )
+                    .with_scale_factor_override(1.0),
                     ..default()
                 }),
                 ..default()
