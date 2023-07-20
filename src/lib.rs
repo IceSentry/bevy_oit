@@ -12,7 +12,10 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
-        extract_component::{DynamicUniformIndex, UniformComponentPlugin},
+        camera::ExtractedCamera,
+        extract_component::{
+            DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
+        },
         render_asset::RenderAssets,
         render_graph::{RenderGraphApp, ViewNodeRunner},
         render_phase::{
@@ -22,13 +25,15 @@ use bevy::{
         },
         render_resource::{
             BindGroup, CachedRenderPipelineId, PipelineCache, ShaderType, SpecializedMeshPipelines,
+            StorageBuffer,
         },
+        renderer::{RenderDevice, RenderQueue},
         view::{ExtractedView, VisibleEntities},
         Extract, Render, RenderApp, RenderSet,
     },
-    utils::FloatOrd,
-    window::WindowResized,
+    utils::{FloatOrd, HashMap},
 };
+use pipeline::OitBuffers;
 
 use crate::{node::OitNode, pipeline::OitDrawPipeline};
 
@@ -46,6 +51,9 @@ pub const OIT_DRAW_SHADER_HANDLE: HandleUntyped =
 pub const OIT_RENDER_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1612685519093760);
 
+#[derive(Component, Clone, Copy, ExtractComponent)]
+pub struct OitCamera;
+
 pub struct OitPlugin;
 impl Plugin for OitPlugin {
     fn build(&self, app: &mut App) {
@@ -62,7 +70,8 @@ impl Plugin for OitPlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugins(UniformComponentPlugin::<OitMaterialUniform>::default());
+        app.add_plugins(UniformComponentPlugin::<OitMaterialUniform>::default())
+            .add_plugins(ExtractComponentPlugin::<OitCamera>::default());
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -71,8 +80,9 @@ impl Plugin for OitPlugin {
         render_app
             .init_resource::<SpecializedMeshPipelines<OitDrawPipeline>>()
             .init_resource::<DrawFunctions<OitPhaseItem>>()
+            .init_resource::<OitBuffers>()
             .add_render_command::<OitPhaseItem, DrawOit>()
-            .add_systems(Render, on_resize);
+            .add_systems(Render, prepare_buffers.in_set(RenderSet::Prepare));
 
         render_app
             .add_systems(
@@ -160,46 +170,46 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOitMaterialBindGroup<
     }
 }
 
-#[derive(Resource, Deref)]
-pub(crate) struct OitLayersBindGroup(pub(crate) BindGroup);
+#[derive(Component, Deref)]
+pub struct OitLayersBindGroup(pub BindGroup);
 
 struct SetOitLayersBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOitLayersBindGroup<I> {
-    type Param = SRes<OitLayersBindGroup>;
-    type ViewWorldQuery = ();
+    type Param = ();
+    type ViewWorldQuery = &'static OitLayersBindGroup;
     type ItemWorldQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: (),
+        bind_group: ROQueryItem<'w, Self::ViewWorldQuery>,
         _mesh_index: ROQueryItem<'w, Self::ItemWorldQuery>,
-        bind_group: SystemParamItem<'w, '_, Self::Param>,
+        _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(I, bind_group.into_inner(), &[]);
+        pass.set_bind_group(I, bind_group, &[]);
         RenderCommandResult::Success
     }
 }
 
-#[derive(Resource, Deref)]
-pub(crate) struct OitLayerIdsBindGroup(pub(crate) BindGroup);
+#[derive(Component, Deref)]
+pub struct OitLayerIdsBindGroup(pub BindGroup);
 
 struct SetOitLayerIdsBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOitLayerIdsBindGroup<I> {
-    type Param = SRes<OitLayerIdsBindGroup>;
-    type ViewWorldQuery = ();
+    type Param = ();
+    type ViewWorldQuery = &'static OitLayerIdsBindGroup;
     type ItemWorldQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: (),
+        bind_group: ROQueryItem<'w, Self::ViewWorldQuery>,
         _mesh_index: ROQueryItem<'w, Self::ItemWorldQuery>,
-        bind_group: SystemParamItem<'w, '_, Self::Param>,
+        _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(I, bind_group.into_inner(), &[]);
+        pass.set_bind_group(I, bind_group, &[]);
         RenderCommandResult::Success
     }
 }
@@ -306,8 +316,54 @@ fn queue_mesh_oit_phase(
     }
 }
 
-fn on_resize(mut evs: EventReader<WindowResized>) {
-    for ev in evs.iter() {
-        println!("{:?}", ev);
+/// This creates the required buffers for each camera
+#[allow(clippy::type_complexity)]
+fn prepare_buffers(
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    cameras: Query<(Entity, &ExtractedCamera), (Changed<ExtractedCamera>, With<OitCamera>)>,
+    mut buffers: ResMut<OitBuffers>,
+) {
+    for (entity, camera) in &cameras {
+        let Some(size) = camera.physical_target_size else { continue; };
+
+        let size = (size.x * size.y) as usize;
+
+        if let Some((current_size, oit_layers_buffer, oit_layer_ids_buffer)) =
+            buffers.get_mut(&entity)
+        {
+            // resize buffers
+            if *current_size >= size {
+                // Don't resize if the buffer is already bigger
+                // This is technically wasting memory but it's a bit faster so...
+                return;
+            }
+
+            println!("curr: {current_size} new: {size}");
+
+            // TODO this is super slow, figure out a more efficient way to resize
+            // Consider debouncing
+
+            oit_layers_buffer
+                .get_mut()
+                .resize(size * OIT_LAYERS, Vec4::ZERO);
+            oit_layers_buffer.write_buffer(&render_device, &render_queue);
+
+            oit_layer_ids_buffer.get_mut().resize(size, 0);
+            oit_layer_ids_buffer.write_buffer(&render_device, &render_queue);
+
+            *current_size = size;
+        } else {
+            // init buffers
+            let mut oit_layers_buffer = StorageBuffer::default();
+            oit_layers_buffer.set(vec![Vec4::ZERO; size * OIT_LAYERS]);
+            oit_layers_buffer.write_buffer(&render_device, &render_queue);
+
+            let mut oit_layer_ids_buffer = StorageBuffer::default();
+            oit_layer_ids_buffer.set(vec![0; size]);
+            oit_layer_ids_buffer.write_buffer(&render_device, &render_queue);
+
+            buffers.insert(entity, (size, oit_layers_buffer, oit_layer_ids_buffer));
+        }
     }
 }

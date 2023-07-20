@@ -1,8 +1,13 @@
+#import bevy_render::view  View
+
 @group(0) @binding(0)
 var<storage, read_write> layers: array<vec4<f32>>;
 
 @group(1) @binding(0)
 var<storage, read_write> layer_ids: array<atomic<i32>>;
+
+@group(2) @binding(0)
+var<uniform> view: View;
 
 var<private> fragment_list: array<vec4<f32>, 32>;
 
@@ -14,18 +19,8 @@ struct FullscreenVertexOutput {
 };
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    let viewport_width = 1280.0;
-    let viewport_height = 720.0;
-    let buffer_size = i32(viewport_width * viewport_height);
-    let screen_index = i32(floor(in.position.x) + floor(in.position.y)* viewport_width);
-
-    // show top layer
-    // let color = layers[screen_index];
-    // if all(color == vec4(0.0)) {
-    //     discard;
-    // } else {
-    //     return color;
-    // }
+    let buffer_size = i32(view.viewport.z * view.viewport.w);
+    let screen_index = i32(floor(in.position.x) + floor(in.position.y)* view.viewport.z);
 
     let counter = atomicLoad(&layer_ids[screen_index]);
     if counter == 0 {

@@ -4,7 +4,7 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef},
     window::WindowResolution,
 };
-use bevy_oit::{OitMaterial, OitMaterialMeshBundle, OitPlugin};
+use bevy_oit::{OitCamera, OitMaterial, OitMaterialMeshBundle, OitPlugin};
 use camera_controller::{CameraController, CameraControllerPlugin};
 
 mod camera_controller;
@@ -52,6 +52,7 @@ fn setup(
             ..default()
         },
         CameraController::default(),
+        OitCamera,
     ));
 
     commands.spawn(PointLightBundle {
@@ -77,6 +78,15 @@ fn setup(
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: std_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
             transform: Transform::from_xyz(0.0, 0.0, 1.0),
+            ..default()
+        })
+        .insert(KeepMaterial);
+
+    commands
+        .spawn(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: std_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            transform: Transform::from_xyz(0.0, 0.0, 2.0),
             ..default()
         })
         .insert(KeepMaterial);
@@ -152,7 +162,7 @@ fn mat(
             //     base_color: Color::WHITE.with_a(0.5),
             // }))
             .insert(OitMaterial {
-                base_color: Color::GREEN.with_a(0.1),
+                base_color: Color::WHITE.with_a(0.1),
             });
     }
 }

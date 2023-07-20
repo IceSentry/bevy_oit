@@ -12,53 +12,40 @@ use bevy::{
             SpecializedMeshPipeline, SpecializedMeshPipelineError, StencilFaceState, StencilState,
             StorageBuffer, TextureFormat,
         },
-        renderer::{RenderDevice, RenderQueue},
+        renderer::RenderDevice,
         texture::BevyDefault,
     },
+    utils::HashMap,
 };
 
 use crate::{
     bind_group_entries, bind_group_layout_entries, utils::RenderPipelineDescriptorBuilder,
     OitLayerIdsBindGroup, OitLayersBindGroup, OitMaterialUniform, OitMaterialUniformsBindGroup,
-    OIT_DRAW_SHADER_HANDLE, OIT_LAYERS, OIT_RENDER_SHADER_HANDLE, WINDOW_HEIGHT, WINDOW_WIDTH,
+    OIT_DRAW_SHADER_HANDLE, OIT_LAYERS, OIT_RENDER_SHADER_HANDLE,
 };
 
 #[derive(Resource)]
 pub struct OitDrawPipeline {
     pub(crate) mesh_pipeline: MeshPipeline,
-    pub(crate) material_bind_group_layout: BindGroupLayout,
+    pub(crate) oit_material_bind_group_layout: BindGroupLayout,
     pub(crate) oit_layers_bind_group_layout: BindGroupLayout,
     pub(crate) oit_layer_ids_bind_group_layout: BindGroupLayout,
-    pub(crate) oit_layers_buffer: StorageBuffer<Vec<Vec4>>,
-    pub(crate) oit_layer_ids_buffer: StorageBuffer<Vec<i32>>,
 }
-
-// #[derive(AsBindGroup)]
-// struct OitMaterialBindGroup {
-//     #[uniform(0)]
-//     buffer: OitMaterialUniform,
-// }
 
 impl FromWorld for OitDrawPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let render_queue = world.resource::<RenderQueue>();
 
-        // let material_bind_group_layout = OitMaterialBindGroup::bind_group_layout(render_device);
-
-        let material_bind_group_layout =
+        let oit_material_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("oit_material_bind_group_layout"),
-                entries: &[bevy::render::render_resource::BindGroupLayoutEntry {
-                    binding: 0,
-                    ty: (BindingType::Buffer {
+                entries: &bind_group_layout_entries![
+                    0 => (ShaderStages::FRAGMENT, BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
                         min_binding_size: Some(OitMaterialUniform::min_size()),
                     }),
-                    visibility: (ShaderStages::FRAGMENT),
-                    count: None,
-                }],
+                ],
             });
 
         let oit_layers_bind_group_layout =
@@ -87,21 +74,11 @@ impl FromWorld for OitDrawPipeline {
 
         let mesh_pipeline = world.resource::<MeshPipeline>().clone();
 
-        let mut oit_layers_buffer = StorageBuffer::default();
-        oit_layers_buffer.set(vec![Vec4::ZERO; WINDOW_WIDTH * WINDOW_HEIGHT * OIT_LAYERS]);
-        oit_layers_buffer.write_buffer(render_device, render_queue);
-
-        let mut oit_layer_ids_buffer = StorageBuffer::default();
-        oit_layer_ids_buffer.set(vec![0; WINDOW_WIDTH * WINDOW_HEIGHT]);
-        oit_layer_ids_buffer.write_buffer(render_device, render_queue);
-
         OitDrawPipeline {
             mesh_pipeline,
-            material_bind_group_layout,
+            oit_material_bind_group_layout,
             oit_layers_bind_group_layout,
             oit_layer_ids_bind_group_layout,
-            oit_layers_buffer,
-            oit_layer_ids_buffer,
         }
     }
 }
@@ -121,7 +98,7 @@ impl SpecializedMeshPipeline for OitDrawPipeline {
             1 => vec![self.mesh_pipeline.view_layout.clone()],
             _ => vec![self.mesh_pipeline.view_layout_multisampled.clone()],
         };
-        layout.push(self.material_bind_group_layout.clone());
+        layout.push(self.oit_material_bind_group_layout.clone());
         layout.push(self.mesh_pipeline.mesh_layouts.model_only.clone());
         layout.push(self.oit_layers_bind_group_layout.clone());
         layout.push(self.oit_layer_ids_bind_group_layout.clone());
@@ -135,21 +112,44 @@ impl SpecializedMeshPipeline for OitDrawPipeline {
             frag.shader = OIT_DRAW_SHADER_HANDLE.typed();
             frag.shader_defs.push(oit_layer_def);
         }
+        // desc.depth_stencil = Some(DepthStencilState {
+        //     format: TextureFormat::Depth32Float,
+        //     depth_write_enabled: false,
+        //     depth_compare: CompareFunction::GreaterEqual,
+        //     stencil: StencilState {
+        //         front: StencilFaceState::IGNORE,
+        //         back: StencilFaceState::IGNORE,
+        //         read_mask: 0,
+        //         write_mask: 0,
+        //     },
+        //     bias: DepthBiasState {
+        //         constant: 0,
+        //         slope_scale: 0.0,
+        //         clamp: 0.0,
+        //     },
+        // });
 
         Ok(desc)
     }
 }
+
+#[derive(Resource, Default, Deref, DerefMut)]
+#[allow(clippy::type_complexity)]
+pub struct OitBuffers(
+    pub HashMap<Entity, (usize, StorageBuffer<Vec<Vec4>>, StorageBuffer<Vec<i32>>)>,
+);
 
 pub(crate) fn queue_bind_group(
     mut commands: Commands,
     pipeline: Res<OitDrawPipeline>,
     render_device: Res<RenderDevice>,
     material_uniforms: Res<ComponentUniforms<OitMaterialUniform>>,
+    buffers: Res<OitBuffers>,
 ) {
     if let Some(material_uniforms) = material_uniforms.binding() {
         let material_uniforms_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             label: Some("oit_material_bind_group"),
-            layout: &pipeline.material_bind_group_layout,
+            layout: &pipeline.oit_material_bind_group_layout,
             entries: &bind_group_entries![
                 0 => material_uniforms,
             ],
@@ -157,26 +157,32 @@ pub(crate) fn queue_bind_group(
         commands.insert_resource(OitMaterialUniformsBindGroup(material_uniforms_bind_group));
     }
 
-    if let Some(buffer) = pipeline.oit_layers_buffer.binding() {
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("oit_layers_bind_group"),
-            layout: &pipeline.oit_layers_bind_group_layout,
-            entries: &bind_group_entries![
-                0 => buffer,
-            ],
-        });
-        commands.insert_resource(OitLayersBindGroup(bind_group));
-    }
+    for (entity, (_, oit_layers_buffer, oit_layer_ids_buffer)) in &buffers.0 {
+        if let Some(buffer) = oit_layers_buffer.binding() {
+            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+                label: Some("oit_layers_bind_group"),
+                layout: &pipeline.oit_layers_bind_group_layout,
+                entries: &bind_group_entries![
+                    0 => buffer,
+                ],
+            });
+            commands
+                .entity(*entity)
+                .insert(OitLayersBindGroup(bind_group));
+        }
 
-    if let Some(buffer) = pipeline.oit_layer_ids_buffer.binding() {
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("oit_layer_ids_bind_group_layout"),
-            layout: &pipeline.oit_layer_ids_bind_group_layout,
-            entries: &bind_group_entries![
-                0 => buffer,
-            ],
-        });
-        commands.insert_resource(OitLayerIdsBindGroup(bind_group));
+        if let Some(buffer) = oit_layer_ids_buffer.binding() {
+            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+                label: Some("oit_layer_ids_bind_group_layout"),
+                layout: &pipeline.oit_layer_ids_bind_group_layout,
+                entries: &bind_group_entries![
+                    0 => buffer,
+                ],
+            });
+            commands
+                .entity(*entity)
+                .insert(OitLayerIdsBindGroup(bind_group));
+        }
     }
 }
 
@@ -224,6 +230,7 @@ pub(crate) fn queue_render_oit_pipeline(
         .layout(vec![
             pipeline.oit_layers_bind_group_layout.clone(),
             pipeline.oit_layer_ids_bind_group_layout.clone(),
+            pipeline.mesh_pipeline.view_layout.clone(),
         ])
         .build();
 

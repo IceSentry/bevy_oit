@@ -1,5 +1,6 @@
 use bevy::{
     ecs::query::QueryItem,
+    pbr::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset},
     prelude::*,
     render::{
         camera::ExtractedCamera,
@@ -10,7 +11,7 @@ use bevy::{
             RenderPassDescriptor,
         },
         renderer::RenderContext,
-        view::{ViewDepthTexture, ViewTarget},
+        view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
     },
 };
 
@@ -28,13 +29,30 @@ impl ViewNode for OitNode {
         &'static RenderPhase<OitPhaseItem>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
+        &'static OitLayersBindGroup,
+        &'static OitLayerIdsBindGroup,
+        &'static MeshViewBindGroup,
+        &'static ViewUniformOffset,
+        &'static ViewLightsUniformOffset,
+        &'static ViewFogUniformOffset,
     );
 
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, render_phase, view_target, depth): QueryItem<Self::ViewQuery>,
+        (
+            camera,
+            render_phase,
+            view_target,
+            depth,
+            oit_layers_bind_group,
+            oit_layer_ids_bind_group,
+            mesh_view_bind_group,
+            view_uniform,
+            view_lights,
+            view_fog,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
@@ -77,9 +95,6 @@ impl ViewNode for OitNode {
                 return Ok(());
             };
 
-            let oit_layers_bind_group = world.resource::<OitLayersBindGroup>();
-            let oit_layer_ids_bind_group = world.resource::<OitLayerIdsBindGroup>();
-
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("oit_render_pass"),
                 color_attachments: &[Some(view_target.get_color_attachment(Operations {
@@ -99,6 +114,12 @@ impl ViewNode for OitNode {
             render_pass.set_render_pipeline(pipeline);
             render_pass.set_bind_group(0, oit_layers_bind_group, &[]);
             render_pass.set_bind_group(1, oit_layer_ids_bind_group, &[]);
+            // TODO create a bind_group only for viewport
+            render_pass.set_bind_group(
+                2,
+                &mesh_view_bind_group.value,
+                &[view_uniform.offset, view_lights.offset, view_fog.offset],
+            );
             render_pass.draw(0..3, 0..1);
         }
 
