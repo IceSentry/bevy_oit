@@ -31,15 +31,15 @@ use bevy::{
         view::{ExtractedView, VisibleEntities},
         Extract, Render, RenderApp, RenderSet,
     },
-    utils::{FloatOrd, HashMap},
+    utils::FloatOrd,
 };
-use pipeline::OitBuffers;
+use pipeline::{OitBuffers, OitRenderPipeline};
 
 use crate::{node::OitNode, pipeline::OitDrawPipeline};
 
 pub const WINDOW_WIDTH: usize = 1280;
 pub const WINDOW_HEIGHT: usize = 720;
-pub const OIT_LAYERS: usize = 16;
+pub const OIT_LAYERS: usize = 8;
 
 mod node;
 mod pipeline;
@@ -94,7 +94,7 @@ impl Plugin for OitPlugin {
                 (
                     sort_phase_system::<OitPhaseItem>.in_set(RenderSet::PhaseSort),
                     queue_mesh_oit_phase.in_set(RenderSet::Queue),
-                    pipeline::queue_bind_group.in_set(RenderSet::Queue),
+                    pipeline::queue_bind_groups.in_set(RenderSet::Queue),
                     pipeline::queue_render_oit_pipeline.in_set(RenderSet::Queue),
                 ),
             );
@@ -103,11 +103,7 @@ impl Plugin for OitPlugin {
             .add_render_graph_node::<ViewNodeRunner<OitNode>>(CORE_3D, OitNode::NAME)
             .add_render_graph_edges(
                 CORE_3D,
-                &[
-                    core_3d::graph::node::MAIN_OPAQUE_PASS,
-                    OitNode::NAME,
-                    core_3d::graph::node::MAIN_TRANSPARENT_PASS,
-                ],
+                &[core_3d::graph::node::MAIN_TRANSPARENT_PASS, OitNode::NAME],
             );
     }
 
@@ -115,7 +111,9 @@ impl Plugin for OitPlugin {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-        render_app.init_resource::<OitDrawPipeline>();
+        render_app
+            .init_resource::<OitDrawPipeline>()
+            .init_resource::<OitRenderPipeline>();
     }
 }
 
@@ -343,6 +341,7 @@ fn prepare_buffers(
 
             // TODO this is super slow, figure out a more efficient way to resize
             // Consider debouncing
+            // Maybe hide the OIT pass while resizing or keep it centered somehow?
 
             oit_layers_buffer
                 .get_mut()

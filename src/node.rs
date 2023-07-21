@@ -1,6 +1,5 @@
 use bevy::{
     ecs::query::QueryItem,
-    pbr::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset},
     prelude::*,
     render::{
         camera::ExtractedCamera,
@@ -15,7 +14,10 @@ use bevy::{
     },
 };
 
-use crate::{pipeline::OitRenderPipeline, OitLayerIdsBindGroup, OitLayersBindGroup, OitPhaseItem};
+use crate::{
+    pipeline::{OitRenderParamsBindGroup, OitRenderPipelineId},
+    OitLayerIdsBindGroup, OitLayersBindGroup, OitPhaseItem,
+};
 
 #[derive(Default)]
 pub struct OitNode;
@@ -31,10 +33,7 @@ impl ViewNode for OitNode {
         &'static ViewDepthTexture,
         &'static OitLayersBindGroup,
         &'static OitLayerIdsBindGroup,
-        &'static MeshViewBindGroup,
         &'static ViewUniformOffset,
-        &'static ViewLightsUniformOffset,
-        &'static ViewFogUniformOffset,
     );
 
     fn run(
@@ -48,10 +47,7 @@ impl ViewNode for OitNode {
             depth,
             oit_layers_bind_group,
             oit_layer_ids_bind_group,
-            mesh_view_bind_group,
             view_uniform,
-            view_lights,
-            view_fog,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
@@ -61,7 +57,7 @@ impl ViewNode for OitNode {
             return Ok(());
         }
 
-        // oit draw phase
+        // draw oit phase
         {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("oit_draw_pass"),
@@ -73,7 +69,7 @@ impl ViewNode for OitNode {
                     view: &depth.view,
                     depth_ops: Some(Operations {
                         load: LoadOp::Load,
-                        store: true,
+                        store: false,
                     }),
                     stencil_ops: None,
                 }),
@@ -87,10 +83,10 @@ impl ViewNode for OitNode {
         }
 
         // render oit
-        // TODO this should probably run after the main transparent pass
         {
-            let pipeline_id = world.resource::<OitRenderPipeline>();
+            let pipeline_id = world.resource::<OitRenderPipelineId>();
             let pipeline_cache = world.resource::<PipelineCache>();
+            let params_bind_group = world.resource::<OitRenderParamsBindGroup>();
             let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
                 return Ok(());
             };
@@ -101,25 +97,14 @@ impl ViewNode for OitNode {
                     load: LoadOp::Load,
                     store: true,
                 }))],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &depth.view,
-                    depth_ops: Some(Operations {
-                        load: LoadOp::Load,
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
+                depth_stencil_attachment: None,
             });
 
             render_pass.set_render_pipeline(pipeline);
             render_pass.set_bind_group(0, oit_layers_bind_group, &[]);
             render_pass.set_bind_group(1, oit_layer_ids_bind_group, &[]);
             // TODO create a bind_group only for viewport
-            render_pass.set_bind_group(
-                2,
-                &mesh_view_bind_group.value,
-                &[view_uniform.offset, view_lights.offset, view_fog.offset],
-            );
+            render_pass.set_bind_group(2, params_bind_group, &[view_uniform.offset]);
             render_pass.draw(0..3, 0..1);
         }
 
