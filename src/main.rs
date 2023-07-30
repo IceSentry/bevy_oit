@@ -1,7 +1,8 @@
 use bevy::{
+    core_pipeline::core_3d::Camera3dDepthTextureUsage,
     prelude::{shape::UVSphere, *},
     reflect::{TypePath, TypeUuid},
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::render_resource::{AsBindGroup, ShaderRef, TextureUsages},
     window::WindowResolution,
 };
 use bevy_oit::{OitCamera, OitMaterial, OitMaterialMeshBundle, OitPlugin};
@@ -13,7 +14,7 @@ mod camera_controller;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::BLUE))
+        .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Msaa::Off)
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
@@ -49,6 +50,12 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 1.0, 5.0),
+            camera_3d: Camera3d {
+                depth_texture_usages: (TextureUsages::RENDER_ATTACHMENT
+                    | TextureUsages::TEXTURE_BINDING)
+                    .into(),
+                ..default()
+            },
             ..default()
         },
         CameraController::default(),

@@ -5,10 +5,7 @@ use bevy::{
         camera::ExtractedCamera,
         render_graph::{NodeRunError, RenderGraphContext, ViewNode},
         render_phase::RenderPhase,
-        render_resource::{
-            LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment,
-            RenderPassDescriptor,
-        },
+        render_resource::{LoadOp, Operations, PipelineCache, RenderPassDescriptor},
         renderer::RenderContext,
         view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
     },
@@ -30,7 +27,6 @@ impl ViewNode for OitNode {
         &'static ExtractedCamera,
         &'static RenderPhase<OitPhaseItem>,
         &'static ViewTarget,
-        &'static ViewDepthTexture,
         &'static OitLayersBindGroup,
         &'static OitLayerIdsBindGroup,
         &'static ViewUniformOffset,
@@ -44,7 +40,6 @@ impl ViewNode for OitNode {
             camera,
             render_phase,
             view_target,
-            depth,
             oit_layers_bind_group,
             oit_layer_ids_bind_group,
             view_uniform,
@@ -65,14 +60,7 @@ impl ViewNode for OitNode {
                     load: LoadOp::Load,
                     store: true,
                 }))],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &depth.view,
-                    depth_ops: Some(Operations {
-                        load: LoadOp::Load,
-                        store: false,
-                    }),
-                    stencil_ops: None,
-                }),
+                depth_stencil_attachment: None,
             });
 
             if let Some(viewport) = camera.viewport.as_ref() {
@@ -103,7 +91,6 @@ impl ViewNode for OitNode {
             render_pass.set_render_pipeline(pipeline);
             render_pass.set_bind_group(0, oit_layers_bind_group, &[]);
             render_pass.set_bind_group(1, oit_layer_ids_bind_group, &[]);
-            // TODO create a bind_group only for viewport
             render_pass.set_bind_group(2, params_bind_group, &[view_uniform.offset]);
             render_pass.draw(0..3, 0..1);
         }

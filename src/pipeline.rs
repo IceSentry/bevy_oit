@@ -6,23 +6,23 @@ use bevy::{
         mesh::MeshVertexBufferLayout,
         render_resource::{
             BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
-            BindingType, BlendComponent, BlendState, BufferBindingType, CachedRenderPipelineId,
-            ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-            PipelineCache, RenderPipelineDescriptor, ShaderDefVal, ShaderStages, ShaderType,
-            SpecializedMeshPipeline, SpecializedMeshPipelineError, StencilFaceState, StencilState,
-            StorageBuffer, TextureFormat,
+            BindingResource, BindingType, BlendComponent, BlendState, BufferBindingType,
+            CachedRenderPipelineId, ColorTargetState, ColorWrites, PipelineCache,
+            RenderPipelineDescriptor, ShaderDefVal, ShaderStages, ShaderType,
+            SpecializedMeshPipeline, SpecializedMeshPipelineError, StorageBuffer, TextureFormat,
+            TextureSampleType, TextureViewDimension,
         },
         renderer::RenderDevice,
         texture::BevyDefault,
-        view::{ViewUniform, ViewUniforms},
+        view::{ViewDepthTexture, ViewUniform, ViewUniforms},
     },
     utils::HashMap,
 };
 
 use crate::{
     bind_group_entries, bind_group_layout_entries, utils::RenderPipelineDescriptorBuilder,
-    OitLayerIdsBindGroup, OitLayersBindGroup, OitMaterialUniform, OitMaterialUniformsBindGroup,
-    OIT_DRAW_SHADER_HANDLE, OIT_LAYERS, OIT_RENDER_SHADER_HANDLE,
+    OitDepthBindGroup, OitLayerIdsBindGroup, OitLayersBindGroup, OitMaterialUniform,
+    OitMaterialUniformsBindGroup, OIT_DRAW_SHADER_HANDLE, OIT_LAYERS, OIT_RENDER_SHADER_HANDLE,
 };
 
 #[derive(Resource)]
@@ -31,6 +31,7 @@ pub struct OitDrawPipeline {
     pub(crate) oit_material_bind_group_layout: BindGroupLayout,
     pub(crate) oit_layers_bind_group_layout: BindGroupLayout,
     pub(crate) oit_layer_ids_bind_group_layout: BindGroupLayout,
+    pub(crate) depth_bind_group_layout: BindGroupLayout,
 }
 
 impl FromWorld for OitDrawPipeline {
@@ -73,6 +74,18 @@ impl FromWorld for OitDrawPipeline {
                 ],
             });
 
+        let depth_bind_group_layout =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("depth_bind_group"),
+                entries: &bind_group_layout_entries![
+                    0 => (ShaderStages::FRAGMENT, BindingType::Texture {
+                        sample_type: TextureSampleType::Depth,
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    }),
+                ],
+            });
+
         let mesh_pipeline = world.resource::<MeshPipeline>().clone();
 
         OitDrawPipeline {
@@ -80,6 +93,7 @@ impl FromWorld for OitDrawPipeline {
             oit_material_bind_group_layout,
             oit_layers_bind_group_layout,
             oit_layer_ids_bind_group_layout,
+            depth_bind_group_layout,
         }
     }
 }
@@ -103,6 +117,7 @@ impl SpecializedMeshPipeline for OitDrawPipeline {
         layout.push(self.mesh_pipeline.mesh_layouts.model_only.clone());
         layout.push(self.oit_layers_bind_group_layout.clone());
         layout.push(self.oit_layer_ids_bind_group_layout.clone());
+        layout.push(self.depth_bind_group_layout.clone());
 
         let oit_layer_def = ShaderDefVal::Int("OIT_LAYERS".to_string(), OIT_LAYERS as i32);
 
@@ -113,22 +128,7 @@ impl SpecializedMeshPipeline for OitDrawPipeline {
             frag.shader = OIT_DRAW_SHADER_HANDLE.typed();
             frag.shader_defs.push(oit_layer_def);
         }
-        desc.depth_stencil = Some(DepthStencilState {
-            format: TextureFormat::Depth32Float,
-            depth_write_enabled: false,
-            depth_compare: CompareFunction::GreaterEqual,
-            stencil: StencilState {
-                front: StencilFaceState::IGNORE,
-                back: StencilFaceState::IGNORE,
-                read_mask: 0,
-                write_mask: 0,
-            },
-            bias: DepthBiasState {
-                constant: 0,
-                slope_scale: 0.0,
-                clamp: 0.0,
-            },
-        });
+        desc.depth_stencil = None;
 
         Ok(desc)
     }
@@ -143,6 +143,7 @@ pub struct OitBuffers(
 #[derive(Resource, Deref)]
 pub struct OitRenderParamsBindGroup(pub BindGroup);
 
+#[allow(clippy::too_many_arguments)]
 pub fn queue_bind_groups(
     mut commands: Commands,
     pipeline: Res<OitDrawPipeline>,
@@ -151,6 +152,7 @@ pub fn queue_bind_groups(
     material_uniforms: Res<ComponentUniforms<OitMaterialUniform>>,
     buffers: Res<OitBuffers>,
     view_uniforms: Res<ViewUniforms>,
+    depth_textures: Query<(Entity, &ViewDepthTexture)>,
 ) {
     if let Some(material_uniforms) = material_uniforms.binding() {
         let material_uniforms_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -192,16 +194,25 @@ pub fn queue_bind_groups(
     }
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        // TODO create a bind group
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             label: Some("oit_render_params_bind_gropu"),
             layout: &render_pipeline.params_bind_group_layout,
-            // TODO add depth texture
             entries: &bind_group_entries![
                 0 => view_binding,
             ],
         });
         commands.insert_resource(OitRenderParamsBindGroup(bind_group));
+    }
+
+    for (e, texture) in &depth_textures {
+        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("oit_draw_depth_bind_group"),
+            layout: &pipeline.depth_bind_group_layout,
+            entries: &bind_group_entries![
+                0 => BindingResource::TextureView(&texture.view),
+            ],
+        });
+        commands.entity(e).insert(OitDepthBindGroup(bind_group));
     }
 }
 
