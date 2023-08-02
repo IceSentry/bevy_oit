@@ -3,7 +3,7 @@ use bevy::{
     prelude::{shape::UVSphere, *},
     reflect::{TypePath, TypeUuid},
     render::render_resource::{AsBindGroup, ShaderRef, TextureUsages},
-    window::WindowResolution,
+    window::{PresentMode, WindowResolution},
 };
 use bevy_oit::{OitCamera, OitMaterial, OitMaterialMeshBundle, OitPlugin};
 use camera_controller::{CameraController, CameraControllerPlugin};
@@ -24,6 +24,7 @@ fn main() {
                         bevy_oit::WINDOW_HEIGHT as f32,
                     )
                     .with_scale_factor_override(1.0),
+                    present_mode: PresentMode::AutoNoVsync,
                     ..default()
                 }),
                 ..default()
@@ -33,7 +34,7 @@ fn main() {
             OitPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, mat)
+        .add_systems(Update, (mat, toggle_material))
         .run();
 }
 
@@ -188,5 +189,48 @@ impl Material for GoochMaterial {
 
     fn alpha_mode(&self) -> AlphaMode {
         AlphaMode::Blend
+    }
+}
+
+#[allow(clippy::type_complexity)]
+fn toggle_material(
+    mut commands: Commands,
+    q: Query<(Entity, Option<&Handle<GoochMaterial>>, Option<&OitMaterial>)>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut materials: ResMut<Assets<GoochMaterial>>,
+    mut text: Query<&mut Text>,
+    mut oit_toggle: Local<bool>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        if *oit_toggle {
+            text.single_mut().sections[0].value = "OIT: On".into();
+        } else {
+            text.single_mut().sections[0].value = "OIT: Off".into();
+        }
+        *oit_toggle = !*oit_toggle;
+    }
+
+    for (e, gooch, oit) in &q {
+        if keyboard_input.just_pressed(KeyCode::Space) {
+            if let Some(handle) = gooch {
+                if let Some(gooch) = materials.get(handle) {
+                    commands
+                        .entity(e)
+                        .remove::<Handle<GoochMaterial>>()
+                        .insert(OitMaterial {
+                            base_color: gooch.base_color,
+                        });
+                }
+                println!("OIT");
+            } else if let Some(oit) = oit {
+                commands
+                    .entity(e)
+                    .remove::<OitMaterial>()
+                    .insert(materials.add(GoochMaterial {
+                        base_color: oit.base_color,
+                    }));
+                println!("GOOCH");
+            }
+        }
     }
 }

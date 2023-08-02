@@ -15,7 +15,7 @@ var<uniform> material: OitMaterial;
 var<uniform> mesh: Mesh;
 
 @group(3) @binding(0)
-var<storage, read_write> layers: array<vec4<f32>>;
+var<storage, read_write> layers: array<vec2<u32>>;
 
 @group(4) @binding(0)
 var<storage, read_write> layer_ids: array<atomic<i32>>;
@@ -88,11 +88,13 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
         // tail blend
         // TODO this doesn't seem to work correctly right now
-        // return vec4(color, material.base_color.a);
+        return vec4(color, material.base_color.a);
     }
 
     let layer_index = screen_index + layer_id * buffer_size;
-    layers[layer_index] = vec4(color, in.position.z);
+    let packed_color = pack4x8unorm(vec4(color, material.base_color.a));
+    let depth = bitcast<u32>(in.position.z);
+    layers[layer_index] = vec2(packed_color, depth);
 
     // we don't want to actually render anything here
     discard;

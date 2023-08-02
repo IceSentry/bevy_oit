@@ -1,7 +1,7 @@
 #import bevy_render::view  View
 
 @group(0) @binding(0)
-var<storage, read_write> layers: array<vec4<f32>>;
+var<storage, read_write> layers: array<vec2<u32>>;
 
 @group(1) @binding(0)
 var<storage, read_write> layer_ids: array<atomic<i32>>;
@@ -9,7 +9,7 @@ var<storage, read_write> layer_ids: array<atomic<i32>>;
 @group(2) @binding(0)
 var<uniform> view: View;
 
-var<private> fragment_list: array<vec4<f32>, 32>;
+var<private> fragment_list: array<vec2<u32>, 32>;
 
 const oit_layers: i32 = #{OIT_LAYERS};
 
@@ -45,7 +45,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
 fn clear(screen_index: i32) {
     atomicStore(&layer_ids[screen_index], 0);
-    layers[screen_index] = vec4(0.0);
+    layers[screen_index] = vec2(0u);
 }
 
 fn sort(screen_index: i32, buffer_size: i32) -> vec4<f32> {
@@ -59,7 +59,7 @@ fn sort(screen_index: i32, buffer_size: i32) -> vec4<f32> {
     // bubble sort
     for (var i = counter; i >= 0; i -= 1){
         for (var j = 0; j < i; j += 1) {
-            if fragment_list[j].w > fragment_list[j + 1].w {
+            if bitcast<f32>(fragment_list[j].y) < bitcast<f32>(fragment_list[j + 1].y) {
                 let temp = fragment_list[j + 1];
                 fragment_list[j + 1] = fragment_list[j];
                 fragment_list[j] = temp;
@@ -69,12 +69,14 @@ fn sort(screen_index: i32, buffer_size: i32) -> vec4<f32> {
 
     // resolve blend
     var final_color = vec4(0.0);
-    let alpha = 0.1; // TODO should not be fixed
+    // let alpha = 0.1; // TODO should not be fixed
     for (var i = 0; i <= counter; i += 1) {
     // for (var i = counter; i >= 0; i -= 1) {
-        let frag = fragment_list[i];
+        let frag = fragment_list[i].r;
+        let color = unpack4x8unorm(frag);
 
-        var base_color = vec4(frag.rgb * alpha, alpha);
+        var base_color = vec4(color.rgb * color.a, color.a);
+        // let base_color = color;
 
         // OVER operator using premultiplied alpha
         // see: https://en.wikipedia.org/wiki/Alpha_compositing

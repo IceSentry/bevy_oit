@@ -39,7 +39,7 @@ use crate::{node::OitNode, pipeline::OitDrawPipeline};
 
 pub const WINDOW_WIDTH: usize = 1280;
 pub const WINDOW_HEIGHT: usize = 720;
-pub const OIT_LAYERS: usize = 8;
+pub const OIT_LAYERS: usize = 16;
 
 mod node;
 mod pipeline;
@@ -368,7 +368,7 @@ fn prepare_buffers(
 
             oit_layers_buffer
                 .get_mut()
-                .resize(size * OIT_LAYERS, Vec4::ZERO);
+                .resize(size * OIT_LAYERS, UVec2::ZERO);
             oit_layers_buffer.write_buffer(&render_device, &render_queue);
 
             oit_layer_ids_buffer.get_mut().resize(size, 0);
@@ -378,7 +378,7 @@ fn prepare_buffers(
         } else {
             // init buffers
             let mut oit_layers_buffer = StorageBuffer::default();
-            oit_layers_buffer.set(vec![Vec4::ZERO; size * OIT_LAYERS]);
+            oit_layers_buffer.set(vec![UVec2::ZERO; size * OIT_LAYERS]);
             oit_layers_buffer.write_buffer(&render_device, &render_queue);
 
             let mut oit_layer_ids_buffer = StorageBuffer::default();

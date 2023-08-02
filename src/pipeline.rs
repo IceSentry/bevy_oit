@@ -137,7 +137,7 @@ impl SpecializedMeshPipeline for OitDrawPipeline {
 #[derive(Resource, Default, Deref, DerefMut)]
 #[allow(clippy::type_complexity)]
 pub struct OitBuffers(
-    pub HashMap<Entity, (usize, StorageBuffer<Vec<Vec4>>, StorageBuffer<Vec<i32>>)>,
+    pub HashMap<Entity, (usize, StorageBuffer<Vec<UVec2>>, StorageBuffer<Vec<i32>>)>,
 );
 
 #[derive(Resource, Deref)]
