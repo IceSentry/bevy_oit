@@ -41,6 +41,7 @@ pub const WINDOW_WIDTH: usize = 1280;
 pub const WINDOW_HEIGHT: usize = 720;
 pub const OIT_LAYERS: usize = 16;
 
+mod material;
 mod node;
 mod pipeline;
 mod utils;

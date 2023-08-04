@@ -11,6 +11,7 @@ use bevy::{
     },
 };
 
+#[allow(unused)]
 pub fn color_target(blend: Option<BlendState>) -> ColorTargetState {
     ColorTargetState {
         format: TextureFormat::bevy_default(),
@@ -78,6 +79,7 @@ pub struct RenderPipelineDescriptorBuilder {
 }
 
 impl RenderPipelineDescriptorBuilder {
+    #[allow(unused)]
     pub fn new(vertex_state: VertexState) -> RenderPipelineDescriptorBuilder {
         Self {
             desc: RenderPipelineDescriptor {
@@ -140,6 +142,7 @@ impl RenderPipelineDescriptorBuilder {
         self
     }
 
+    #[allow(unused)]
     pub fn depth_stencil(mut self, state: DepthStencilState) -> Self {
         self.desc.depth_stencil = Some(state);
         self

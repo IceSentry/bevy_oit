@@ -10,7 +10,10 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
+anyhow = "1.0.72"
 bevy = "0.11"
 
-[patch.crates-io]
-# naga = { path = "./patches/naga" }
+[dev-dependencies]
+dxf = "0.5.0"
+nalgebra = "0.32.3"
+rand = "0.8.5"

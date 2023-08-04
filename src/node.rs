@@ -7,7 +7,7 @@ use bevy::{
         render_phase::RenderPhase,
         render_resource::{LoadOp, Operations, PipelineCache, RenderPassDescriptor},
         renderer::RenderContext,
-        view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
+        view::{ViewTarget, ViewUniformOffset},
     },
 };
 
