@@ -11,7 +11,6 @@ mod camera_controller;
 
 fn main() {
     App::new()
-        // .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Msaa::Off)
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {

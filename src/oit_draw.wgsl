@@ -17,10 +17,10 @@ var<uniform> mesh: Mesh;
 @group(3) @binding(0)
 var<storage, read_write> layers: array<vec2<u32>>;
 
-@group(4) @binding(0)
+@group(3) @binding(1)
 var<storage, read_write> layer_ids: array<atomic<i32>>;
 
-@group(5) @binding(0)
+@group(4) @binding(0)
 var depth_texture: texture_depth_2d;
 
 const oit_layers: i32 = #{OIT_LAYERS};

@@ -12,8 +12,8 @@ use bevy::{
 };
 
 use crate::{
-    pipeline::{OitRenderParamsBindGroup, OitRenderPipelineId},
-    OitLayerIdsBindGroup, OitLayersBindGroup, OitPhaseItem,
+    pipeline::{OitRenderPipelineId, OitRenderViewBindGroup},
+    OitLayersBindGroup, OitPhaseItem,
 };
 
 #[derive(Default)]
@@ -28,7 +28,6 @@ impl ViewNode for OitNode {
         &'static RenderPhase<OitPhaseItem>,
         &'static ViewTarget,
         &'static OitLayersBindGroup,
-        &'static OitLayerIdsBindGroup,
         &'static ViewUniformOffset,
     );
 
@@ -36,14 +35,9 @@ impl ViewNode for OitNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (
-            camera,
-            render_phase,
-            view_target,
-            oit_layers_bind_group,
-            oit_layer_ids_bind_group,
-            view_uniform,
-        ): QueryItem<Self::ViewQuery>,
+        (camera, render_phase, view_target, oit_layers_bind_group, view_uniform): QueryItem<
+            Self::ViewQuery,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
@@ -74,7 +68,7 @@ impl ViewNode for OitNode {
         {
             let pipeline_id = world.resource::<OitRenderPipelineId>();
             let pipeline_cache = world.resource::<PipelineCache>();
-            let params_bind_group = world.resource::<OitRenderParamsBindGroup>();
+            let render_view_bind_group = world.resource::<OitRenderViewBindGroup>();
             let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
                 return Ok(());
             };
@@ -89,9 +83,8 @@ impl ViewNode for OitNode {
             });
 
             render_pass.set_render_pipeline(pipeline);
-            render_pass.set_bind_group(0, oit_layers_bind_group, &[]);
-            render_pass.set_bind_group(1, oit_layer_ids_bind_group, &[]);
-            render_pass.set_bind_group(2, params_bind_group, &[view_uniform.offset]);
+            render_pass.set_bind_group(0, render_view_bind_group, &[view_uniform.offset]);
+            render_pass.set_bind_group(1, oit_layers_bind_group, &[]);
             render_pass.draw(0..3, 0..1);
         }
 

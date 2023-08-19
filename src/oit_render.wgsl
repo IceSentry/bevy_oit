@@ -1,13 +1,13 @@
 #import bevy_render::view  View
 
 @group(0) @binding(0)
-var<storage, read_write> layers: array<vec2<u32>>;
+var<uniform> view: View;
 
 @group(1) @binding(0)
-var<storage, read_write> layer_ids: array<atomic<i32>>;
+var<storage, read_write> layers: array<vec2<u32>>;
 
-@group(2) @binding(0)
-var<uniform> view: View;
+@group(1) @binding(1)
+var<storage, read_write> layer_ids: array<atomic<i32>>;
 
 var<private> fragment_list: array<vec2<u32>, 32>;
 
