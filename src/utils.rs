@@ -3,10 +3,15 @@ use bevy::{
     prelude::*,
     render::{
         render_resource::{
-            BindGroupLayout, BlendState, ColorTargetState, ColorWrites, DepthStencilState,
-            FragmentState, MultisampleState, PrimitiveState, RenderPipelineDescriptor,
-            ShaderDefVal, TextureFormat, VertexBufferLayout, VertexState,
+            encase::private::WriteInto, BindGroup, BindGroupDescriptor, BindGroupEntry,
+            BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource,
+            BindingType, BlendState, BufferBinding, ColorTargetState, ColorWrites,
+            DepthStencilState, DynamicUniformBuffer, FragmentState, MultisampleState,
+            PrimitiveState, RenderPipelineDescriptor, ShaderDefVal, ShaderStages, ShaderType,
+            StorageBuffer, TextureFormat, TextureView, UniformBuffer, VertexBufferLayout,
+            VertexState,
         },
+        renderer::RenderDevice,
         texture::BevyDefault,
     },
 };
@@ -48,30 +53,133 @@ pub fn vertex_state(
     }
 }
 
-#[macro_export]
-macro_rules! bind_group_entries {
-    ($($index:expr => $res:expr,)*) => {
-        [$(
-            bevy::render::render_resource::BindGroupEntry {
-                binding: $index,
-                resource: $res,
-            },
-        )*]
-    };
+pub trait RenderDeviceExt {
+    fn create_bind_group_ext<const S: usize>(
+        &self,
+        label: &'static str,
+        layout: &BindGroupLayout,
+        entries: [BindGroupEntry; S],
+    ) -> BindGroup;
+    fn create_bind_group_layout_ext<const S: usize>(
+        &self,
+        label: &'static str,
+        entries: [(ShaderStages, BindingType); S],
+    ) -> BindGroupLayout;
 }
 
-#[macro_export]
-macro_rules! bind_group_layout_entries {
-    ($($index:expr => ($vis:expr, $ty:expr),)*) => {
-        [$(
-            bevy::render::render_resource::BindGroupLayoutEntry {
-                binding: $index,
-                ty: $ty,
-                visibility: $vis,
-                count: None
-            },
-        )*]
-    };
+impl RenderDeviceExt for RenderDevice {
+    #[inline]
+    fn create_bind_group_ext<const S: usize>(
+        &self,
+        label: &'static str,
+        layout: &BindGroupLayout,
+        mut entries: [BindGroupEntry; S],
+    ) -> BindGroup {
+        let mut auto = false;
+        for (index, entry) in entries.iter_mut().enumerate() {
+            if entry.binding == u32::MAX {
+                entry.binding = index as u32;
+                auto = true;
+            } else if auto {
+                panic!("Cannot mix manual binding indices with automatic indices");
+            }
+        }
+        self.create_bind_group(&BindGroupDescriptor {
+            label: Some(label),
+            layout,
+            entries: &entries,
+        })
+    }
+
+    fn create_bind_group_layout_ext<const S: usize>(
+        &self,
+        label: &'static str,
+        entries: [(ShaderStages, BindingType); S],
+    ) -> BindGroupLayout {
+        let entries = entries
+            .iter()
+            .enumerate()
+            .map(|(i, (vis, ty))| BindGroupLayoutEntry {
+                binding: i as u32,
+                visibility: *vis,
+                ty: *ty,
+                count: None,
+            })
+            .collect::<Vec<_>>();
+        self.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some(label),
+            entries: &entries,
+        })
+    }
+}
+
+pub trait BindingResouceExt {
+    fn binding_index(&self, binding_index: u32) -> BindGroupEntry;
+    fn binding_entry(&self) -> BindGroupEntry;
+}
+impl<T: ShaderType + WriteInto> BindingResouceExt for UniformBuffer<T> {
+    #[inline]
+    fn binding_index(&self, binding_index: u32) -> BindGroupEntry {
+        BindGroupEntry {
+            binding: binding_index,
+            resource: BindingResource::Buffer(
+                self.buffer()
+                    .expect("Failed to get buffer")
+                    .as_entire_buffer_binding(),
+            ),
+        }
+    }
+    fn binding_entry(&self) -> BindGroupEntry {
+        self.binding_index(u32::MAX)
+    }
+}
+impl<T: ShaderType + WriteInto> BindingResouceExt for StorageBuffer<T> {
+    #[inline]
+    fn binding_index(&self, binding_index: u32) -> BindGroupEntry {
+        BindGroupEntry {
+            binding: binding_index,
+            resource: BindingResource::Buffer(
+                self.buffer()
+                    .expect("Failed to get buffer")
+                    .as_entire_buffer_binding(),
+            ),
+        }
+    }
+    fn binding_entry(&self) -> BindGroupEntry {
+        self.binding_index(u32::MAX)
+    }
+}
+impl BindingResouceExt for TextureView {
+    #[inline]
+    fn binding_index(&self, binding_index: u32) -> BindGroupEntry {
+        BindGroupEntry {
+            binding: binding_index,
+            resource: BindingResource::TextureView(self),
+        }
+    }
+
+    #[inline]
+    fn binding_entry(&self) -> BindGroupEntry {
+        self.binding_index(u32::MAX)
+    }
+}
+impl<T: ShaderType + WriteInto> BindingResouceExt for DynamicUniformBuffer<T> {
+    #[inline]
+    fn binding_index(&self, binding_index: u32) -> BindGroupEntry {
+        BindGroupEntry {
+            binding: binding_index,
+            resource: BindingResource::Buffer(BufferBinding {
+                buffer: self.buffer().expect("Failed to get buffer"),
+                offset: 0,
+                size: Some(T::min_size()),
+            }),
+        }
+    }
+
+    #[inline]
+    fn binding_entry(&self) -> BindGroupEntry {
+        self.binding_index(u32::MAX)
+    }
 }
 
 pub struct RenderPipelineDescriptorBuilder {
