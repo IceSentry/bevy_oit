@@ -63,7 +63,8 @@ pub trait RenderDeviceExt {
     fn create_bind_group_layout_ext<const S: usize>(
         &self,
         label: &'static str,
-        entries: [(ShaderStages, BindingType); S],
+        visibility: ShaderStages,
+        entries: [BindingType; S],
     ) -> BindGroupLayout;
 }
 
@@ -85,7 +86,7 @@ impl RenderDeviceExt for RenderDevice {
             }
         }
         self.create_bind_group(&BindGroupDescriptor {
-            label: Some(label),
+            label: if label.is_empty() { None } else { Some(label) },
             layout,
             entries: &entries,
         })
@@ -94,32 +95,33 @@ impl RenderDeviceExt for RenderDevice {
     fn create_bind_group_layout_ext<const S: usize>(
         &self,
         label: &'static str,
-        entries: [(ShaderStages, BindingType); S],
+        visibility: ShaderStages,
+        entries: [BindingType; S],
     ) -> BindGroupLayout {
         let entries = entries
             .iter()
             .enumerate()
-            .map(|(i, (vis, ty))| BindGroupLayoutEntry {
+            .map(|(i, ty)| BindGroupLayoutEntry {
                 binding: i as u32,
-                visibility: *vis,
+                visibility,
                 ty: *ty,
                 count: None,
             })
             .collect::<Vec<_>>();
         self.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some(label),
+            label: if label.is_empty() { None } else { Some(label) },
             entries: &entries,
         })
     }
 }
 
 pub trait BindingResouceExt {
-    fn binding_index(&self, binding_index: u32) -> BindGroupEntry;
-    fn binding_entry(&self) -> BindGroupEntry;
+    fn bind_at(&self, binding_index: u32) -> BindGroupEntry;
+    fn bind(&self) -> BindGroupEntry;
 }
 impl<T: ShaderType + WriteInto> BindingResouceExt for UniformBuffer<T> {
     #[inline]
-    fn binding_index(&self, binding_index: u32) -> BindGroupEntry {
+    fn bind_at(&self, binding_index: u32) -> BindGroupEntry {
         BindGroupEntry {
             binding: binding_index,
             resource: BindingResource::Buffer(
@@ -129,13 +131,13 @@ impl<T: ShaderType + WriteInto> BindingResouceExt for UniformBuffer<T> {
             ),
         }
     }
-    fn binding_entry(&self) -> BindGroupEntry {
-        self.binding_index(u32::MAX)
+    fn bind(&self) -> BindGroupEntry {
+        self.bind_at(u32::MAX)
     }
 }
 impl<T: ShaderType + WriteInto> BindingResouceExt for StorageBuffer<T> {
     #[inline]
-    fn binding_index(&self, binding_index: u32) -> BindGroupEntry {
+    fn bind_at(&self, binding_index: u32) -> BindGroupEntry {
         BindGroupEntry {
             binding: binding_index,
             resource: BindingResource::Buffer(
@@ -145,13 +147,13 @@ impl<T: ShaderType + WriteInto> BindingResouceExt for StorageBuffer<T> {
             ),
         }
     }
-    fn binding_entry(&self) -> BindGroupEntry {
-        self.binding_index(u32::MAX)
+    fn bind(&self) -> BindGroupEntry {
+        self.bind_at(u32::MAX)
     }
 }
 impl BindingResouceExt for TextureView {
     #[inline]
-    fn binding_index(&self, binding_index: u32) -> BindGroupEntry {
+    fn bind_at(&self, binding_index: u32) -> BindGroupEntry {
         BindGroupEntry {
             binding: binding_index,
             resource: BindingResource::TextureView(self),
@@ -159,13 +161,13 @@ impl BindingResouceExt for TextureView {
     }
 
     #[inline]
-    fn binding_entry(&self) -> BindGroupEntry {
-        self.binding_index(u32::MAX)
+    fn bind(&self) -> BindGroupEntry {
+        self.bind_at(u32::MAX)
     }
 }
 impl<T: ShaderType + WriteInto> BindingResouceExt for DynamicUniformBuffer<T> {
     #[inline]
-    fn binding_index(&self, binding_index: u32) -> BindGroupEntry {
+    fn bind_at(&self, binding_index: u32) -> BindGroupEntry {
         BindGroupEntry {
             binding: binding_index,
             resource: BindingResource::Buffer(BufferBinding {
@@ -177,8 +179,55 @@ impl<T: ShaderType + WriteInto> BindingResouceExt for DynamicUniformBuffer<T> {
     }
 
     #[inline]
-    fn binding_entry(&self) -> BindGroupEntry {
-        self.binding_index(u32::MAX)
+    fn bind(&self) -> BindGroupEntry {
+        self.bind_at(u32::MAX)
+    }
+}
+
+pub mod bind_group_layout_types {
+    use std::num::NonZeroU64;
+
+    use bevy::render::render_resource::{
+        BindingType, BufferBindingType, TextureSampleType, TextureViewDimension,
+    };
+
+    pub fn storage_buffer(
+        read_only: bool,
+        has_dynamic_offset: bool,
+        min_binding_size: Option<NonZeroU64>,
+    ) -> BindingType {
+        BindingType::Buffer {
+            ty: BufferBindingType::Storage { read_only },
+            has_dynamic_offset,
+            min_binding_size,
+        }
+    }
+
+    pub fn uniform_buffer(
+        has_dynamic_offset: bool,
+        min_binding_size: Option<NonZeroU64>,
+    ) -> BindingType {
+        BindingType::Buffer {
+            ty: BufferBindingType::Uniform,
+            has_dynamic_offset,
+            min_binding_size,
+        }
+    }
+
+    pub fn texture_2d(sample_type: TextureSampleType, multisampled: bool) -> BindingType {
+        BindingType::Texture {
+            sample_type,
+            view_dimension: TextureViewDimension::D2,
+            multisampled,
+        }
+    }
+
+    pub fn texture_depth_2d(multisampled: bool) -> BindingType {
+        BindingType::Texture {
+            sample_type: TextureSampleType::Depth,
+            view_dimension: TextureViewDimension::D2,
+            multisampled,
+        }
     }
 }
 

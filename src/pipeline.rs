@@ -5,11 +5,10 @@ use bevy::{
         extract_component::ComponentUniforms,
         mesh::MeshVertexBufferLayout,
         render_resource::{
-            BindGroup, BindGroupLayout, BindingType, BlendComponent, BlendState, BufferBindingType,
-            CachedRenderPipelineId, ColorTargetState, ColorWrites, PipelineCache,
-            RenderPipelineDescriptor, ShaderDefVal, ShaderStages, ShaderType,
-            SpecializedMeshPipeline, SpecializedMeshPipelineError, StorageBuffer, TextureFormat,
-            TextureSampleType, TextureViewDimension,
+            BindGroup, BindGroupLayout, BlendComponent, BlendState, CachedRenderPipelineId,
+            ColorTargetState, ColorWrites, PipelineCache, RenderPipelineDescriptor, ShaderDefVal,
+            ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+            StorageBuffer, TextureFormat, TextureSampleType, TextureUsages,
         },
         renderer::RenderDevice,
         texture::BevyDefault,
@@ -19,9 +18,12 @@ use bevy::{
 };
 
 use crate::{
-    utils::{BindingResouceExt, RenderDeviceExt, RenderPipelineDescriptorBuilder},
-    OitDepthBindGroup, OitLayersBindGroup, OitMaterialUniform, OitMaterialUniformsBindGroup,
-    OIT_DRAW_SHADER_HANDLE, OIT_LAYERS, OIT_RENDER_SHADER_HANDLE,
+    utils::{
+        bind_group_layout_types::{storage_buffer, texture_2d, texture_depth_2d, uniform_buffer},
+        BindingResouceExt, RenderDeviceExt, RenderPipelineDescriptorBuilder,
+    },
+    OitCamera, OitDepthBindGroup, OitLayersBindGroup, OitMaterialUniform,
+    OitMaterialUniformsBindGroup, OIT_DRAW_SHADER_HANDLE, OIT_LAYERS, OIT_RENDER_SHADER_HANDLE,
 };
 
 #[derive(Resource)]
@@ -38,48 +40,23 @@ impl FromWorld for OitDrawPipeline {
 
         let oit_material_bind_group_layout = render_device.create_bind_group_layout_ext(
             "oit_material_bind_group_layout",
-            [(
-                ShaderStages::FRAGMENT,
-                BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(OitMaterialUniform::min_size()),
-                },
-            )],
+            ShaderStages::FRAGMENT,
+            [uniform_buffer(true, Some(OitMaterialUniform::min_size()))],
         );
 
         let oit_layers_bind_group_layout = render_device.create_bind_group_layout_ext(
             "oit_layers_bind_group_layout",
+            ShaderStages::FRAGMENT,
             [
-                (
-                    ShaderStages::FRAGMENT,
-                    BindingType::Buffer {
-                        ty: BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                ),
-                (
-                    ShaderStages::FRAGMENT,
-                    BindingType::Buffer {
-                        ty: BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                ),
+                storage_buffer(false, false, None),
+                storage_buffer(false, false, None),
             ],
         );
 
         let depth_bind_group_layout = render_device.create_bind_group_layout_ext(
             "depth_bind_group_layout",
-            [(
-                ShaderStages::FRAGMENT,
-                BindingType::Texture {
-                    sample_type: TextureSampleType::Depth,
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: false,
-                },
-            )],
+            ShaderStages::FRAGMENT,
+            [texture_depth_2d(false)],
         );
 
         let mesh_pipeline = world.resource::<MeshPipeline>().clone();
@@ -146,33 +123,30 @@ pub fn queue_bind_groups(
     material_uniforms: Res<ComponentUniforms<OitMaterialUniform>>,
     buffers: Res<OitBuffers>,
     view_uniforms: Res<ViewUniforms>,
-    depth_textures: Query<(Entity, &ViewDepthTexture)>,
+    depth_textures: Query<(Entity, &ViewDepthTexture), (With<Camera3d>, With<OitCamera>)>,
+    cameras: Query<(&ViewDepthTexture, &Camera3d, Option<&OitCamera>)>,
+    has_oit: Query<&OitCamera>,
 ) {
     let material_uniforms_bind_group = render_device.create_bind_group_ext(
         "oit_material_bind_group",
         &pipeline.oit_material_bind_group_layout,
-        [material_uniforms.uniforms().binding_entry()],
+        [material_uniforms.uniforms().bind()],
     );
     commands.insert_resource(OitMaterialUniformsBindGroup(material_uniforms_bind_group));
 
-    for (entity, (_, oit_layers_buffer, oit_layer_ids_buffer)) in &buffers.0 {
-        let bind_group = render_device.create_bind_group_ext(
+    for (entity, (_, layers, layer_ids)) in &buffers.0 {
+        let bg = render_device.create_bind_group_ext(
             "oit_layers_bind_group",
             &pipeline.oit_layers_bind_group_layout,
-            [
-                oit_layers_buffer.binding_index(0),
-                oit_layer_ids_buffer.binding_index(1),
-            ],
+            [layers.bind(), layer_ids.bind()],
         );
-        commands
-            .entity(*entity)
-            .insert(OitLayersBindGroup(bind_group));
+        commands.entity(*entity).insert(OitLayersBindGroup(bg));
     }
 
     let bind_group = render_device.create_bind_group_ext(
-        "oit_render_params_bind_gropu",
+        "oit_render_params_bind_group",
         &render_pipeline.view_bind_group_layout,
-        [view_uniforms.uniforms.binding_entry()],
+        [view_uniforms.uniforms.bind()],
     );
     commands.insert_resource(OitRenderViewBindGroup(bind_group));
 
@@ -180,7 +154,7 @@ pub fn queue_bind_groups(
         let bind_group = render_device.create_bind_group_ext(
             "oit_draw_depth_bind_group",
             &pipeline.depth_bind_group_layout,
-            [texture.view.binding_entry()],
+            [texture.view.bind()],
         );
         commands.entity(e).insert(OitDepthBindGroup(bind_group));
     }
@@ -197,14 +171,8 @@ impl FromWorld for OitRenderPipeline {
             .resource::<RenderDevice>()
             .create_bind_group_layout_ext(
                 "oit_render_view_layout",
-                [(
-                    ShaderStages::FRAGMENT,
-                    BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: Some(ViewUniform::min_size()),
-                    },
-                )],
+                ShaderStages::FRAGMENT,
+                [uniform_buffer(true, Some(ViewUniform::min_size()))],
             );
         OitRenderPipeline {
             view_bind_group_layout,
