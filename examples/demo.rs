@@ -1,13 +1,15 @@
 use bevy::{
     prelude::{shape::UVSphere, *},
-    reflect::{TypePath, TypeUuid},
-    render::render_resource::{AsBindGroup, ShaderRef, TextureUsages},
+    render::render_resource::TextureUsages,
     window::{PresentMode, WindowResolution},
 };
 use bevy_oit::{OitCamera, OitMaterial, OitMaterialMeshBundle, OitPlugin};
-use camera_controller::{CameraController, CameraControllerPlugin};
+use utils::{
+    camera_controller::{CameraController, CameraControllerPlugin},
+    gooch_material::GoochMaterial,
+};
 
-mod camera_controller;
+mod utils;
 
 fn main() {
     App::new()
@@ -30,20 +32,15 @@ fn main() {
             OitPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (mat, toggle_material))
+        .add_systems(Update, (update_scene_material, toggle_material))
         .run();
 }
 
 #[derive(Component)]
 struct KeepMaterial;
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    // mut materials: ResMut<Assets<GoochMaterial>>,
-    // mut std_materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, asset_server: Res<AssetServer>) {
+    // camera
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 1.0, 5.0),
@@ -59,6 +56,7 @@ fn setup(
         OitCamera,
     ));
 
+    // Text
     commands.spawn(TextBundle::from_section(
         "OIT: On",
         TextStyle {
@@ -67,6 +65,7 @@ fn setup(
         },
     ));
 
+    // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 1500.0,
@@ -77,95 +76,19 @@ fn setup(
         ..default()
     });
 
-    // let pos_a = Vec3::new(-0.5, 0.5, 0.0);
-    // let pos_b = Vec3::new(0.0, 0.0, 0.0);
-    // let pos_c = Vec3::new(0.5, 0.5, 0.0);
-
-    // let offset = Vec3::new(1.65, 0.0, 0.0);
-
-    let sphere_handle = meshes.add(UVSphere::default().into());
-
-    // commands
-    //     .spawn(PbrBundle {
-    //         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-    //         material: std_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-    //         transform: Transform::from_xyz(0.0, 0.0, 1.0),
-    //         ..default()
-    //     })
-    //     .insert(KeepMaterial);
-
-    // commands
-    //     .spawn(PbrBundle {
-    //         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-    //         material: std_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-    //         transform: Transform::from_xyz(0.0, 0.0, 2.0),
-    //         ..default()
-    //     })
-    //     .insert(KeepMaterial);
-
-    // oit material
-    // commands.spawn(OitMaterialMeshBundle {
-    //     mesh: sphere_handle.clone(),
-    //     material: OitMaterial {
-    //         base_color: Color::RED.with_a(0.5),
-    //     },
-    //     transform: Transform::from_translation(pos_a - offset),
-    //     ..default()
-    // });
-    // commands.spawn(OitMaterialMeshBundle {
-    //     mesh: sphere_handle.clone(),
-    //     material: OitMaterial {
-    //         base_color: Color::GREEN.with_a(0.5),
-    //     },
-    //     transform: Transform::from_translation(pos_b - offset),
-    //     ..default()
-    // });
-    // commands.spawn(OitMaterialMeshBundle {
-    //     mesh: sphere_handle.clone(),
-    //     material: OitMaterial {
-    //         base_color: Color::BLUE.with_a(0.5),
-    //     },
-    //     transform: Transform::from_translation(pos_c - offset),
-    //     ..default()
-    // });
-
-    // Alpha Blend
-    // commands.spawn(MaterialMeshBundle {
-    //     mesh: sphere_handle.clone(),
-    //     material: materials.add(GoochMaterial {
-    //         base_color: Color::RED.with_a(0.5),
-    //     }),
-    //     transform: Transform::from_translation(pos_a + offset),
-    //     ..default()
-    // });
-    // commands.spawn(MaterialMeshBundle {
-    //     mesh: sphere_handle.clone(),
-    //     material: materials.add(GoochMaterial {
-    //         base_color: Color::GREEN.with_a(0.5),
-    //     }),
-    //     transform: Transform::from_translation(pos_b + offset),
-    //     ..default()
-    // });
-    // commands.spawn(MaterialMeshBundle {
-    //     mesh: sphere_handle,
-    //     material: materials.add(GoochMaterial {
-    //         base_color: Color::BLUE.with_a(0.5),
-    //     }),
-    //     transform: Transform::from_translation(pos_c + offset),
-    //     ..default()
-    // });
-
+    // dragon
     commands.spawn(SceneBundle {
         scene: asset_server.load("dragon.glb#Scene0"),
         ..default()
     });
 
+    // Spheres
+    let sphere_handle = meshes.add(UVSphere::default().into());
     commands.spawn(OitMaterialMeshBundle {
         mesh: sphere_handle.clone(),
         material: OitMaterial {
-            base_color: Color::RED.with_a(0.9),
+            base_color: Color::RED.with_a(0.75),
         },
-        // transform: Transform::from_translation(pos_a - offset),
         transform: Transform::from_xyz(-1., 0., 0.),
         ..default()
     });
@@ -187,7 +110,7 @@ fn setup(
     });
 }
 
-fn mat(
+fn update_scene_material(
     mut commands: Commands,
     q: Query<Entity, (With<Handle<StandardMaterial>>, Without<KeepMaterial>)>,
 ) {
@@ -196,25 +119,8 @@ fn mat(
             .entity(e)
             .remove::<Handle<StandardMaterial>>()
             .insert(OitMaterial {
-                base_color: Color::WHITE.with_a(0.1),
+                base_color: Color::WHITE.with_a(0.5),
             });
-    }
-}
-
-#[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-#[uuid = "fd884c25-98b1-5155-a809-881b0740b498"]
-struct GoochMaterial {
-    #[uniform(0)]
-    base_color: Color,
-}
-
-impl Material for GoochMaterial {
-    fn fragment_shader() -> ShaderRef {
-        "gooch_shading.wgsl".into()
-    }
-
-    fn alpha_mode(&self) -> AlphaMode {
-        AlphaMode::Blend
     }
 }
 
@@ -254,6 +160,7 @@ fn toggle_material(
                 .remove::<OitMaterial>()
                 .insert(materials.add(GoochMaterial {
                     base_color: oit.base_color,
+                    ..default()
                 }));
         }
     }

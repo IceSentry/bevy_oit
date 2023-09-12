@@ -56,15 +56,6 @@ fn mesh_normal_local_to_world(mesh: Mesh, vertex_normal: vec3<f32>) -> vec3<f32>
     );
 }
 
-// Gooch shading!
-// Interpolates between white and a cooler color based on the angle
-// between the normal and the light.
-fn gooch_shading(normal: vec3<f32>) -> vec3<f32> {
-  let light = normalize(vec3(-1.0, 2.0, 1.0));
-  let warmth = dot(normalize(normal), light) * 0.5 + 0.5;
-  return mix(vec3(0.0, 0.25, 0.75), vec3(1.0, 1.0, 1.0), warmth);
-}
-
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // manual depth testing
@@ -74,9 +65,11 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
-    let shading = gooch_shading(in.world_normal);
-    var color = material.base_color.rgb;
-    color *= shading;
+    let color = gooch_shading(
+        material.base_color,
+        in.world_normal,
+        view.world_position,
+    );
 
     let screen_index = i32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
     let buffer_size = i32(view.viewport.z * view.viewport.w);
@@ -93,7 +86,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     let layer_index = screen_index + layer_id * buffer_size;
-    let packed_color = pack4x8unorm(vec4(color, material.base_color.a));
+    let packed_color = pack4x8unorm(color);
     let depth = bitcast<u32>(in.position.z);
     layers[layer_index] = vec2(packed_color, depth);
 
@@ -101,3 +94,28 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     discard;
 }
 
+// Interpolates between a warm color and a cooler color based on the angle
+// between the normal and the light.
+fn gooch_shading(color: vec4<f32>, world_normal: vec3<f32>, camera_position: vec3<f32>) -> vec4<f32> {
+    let light_direction = normalize(vec3(-1.0, 2.0, 1.0));
+    let camera_direction = normalize(camera_position);
+
+    let warm = vec3(0.4, 0.4, 0.0);
+    let cool = vec3(0.0, 0.0, 0.4);
+
+    let a = 0.2;
+    let b = 0.8;
+
+    // diffuse
+    let gooch = dot(normalize(world_normal), light_direction) * 0.5 + 0.5;
+    var gooch_color = gooch  * (warm + b * color.rgb) +
+        (1.0 - gooch) * (cool + a * color.rgb);
+
+    // specular
+    let R = reflect(-light_direction, normalize(world_normal));
+    let ER = clamp(dot(camera_direction, normalize(R)), 0.0, 1.0);
+    let specular_strength = pow(ER, 2.0);
+    let spec = gooch_color * specular_strength;
+
+    return vec4(gooch_color.rgb + spec, color.a);
+}
