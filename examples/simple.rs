@@ -40,8 +40,8 @@ struct KeepMaterial;
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<GoochMaterial>>,
-    mut std_materials: ResMut<Assets<StandardMaterial>>,
+    // mut materials: ResMut<Assets<GoochMaterial>>,
+    // mut std_materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
@@ -77,11 +77,11 @@ fn setup(
         ..default()
     });
 
-    let pos_a = Vec3::new(-0.5, 0.5, 0.0);
-    let pos_b = Vec3::new(0.0, 0.0, 0.0);
-    let pos_c = Vec3::new(0.5, 0.5, 0.0);
+    // let pos_a = Vec3::new(-0.5, 0.5, 0.0);
+    // let pos_b = Vec3::new(0.0, 0.0, 0.0);
+    // let pos_c = Vec3::new(0.5, 0.5, 0.0);
 
-    let offset = Vec3::new(1.65, 0.0, 0.0);
+    // let offset = Vec3::new(1.65, 0.0, 0.0);
 
     let sphere_handle = meshes.add(UVSphere::default().into());
 

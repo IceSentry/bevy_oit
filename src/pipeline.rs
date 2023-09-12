@@ -8,7 +8,7 @@ use bevy::{
             BindGroup, BindGroupLayout, BlendComponent, BlendState, CachedRenderPipelineId,
             ColorTargetState, ColorWrites, PipelineCache, RenderPipelineDescriptor, ShaderDefVal,
             ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-            StorageBuffer, TextureFormat, TextureSampleType, TextureUsages,
+            StorageBuffer, TextureFormat,
         },
         renderer::RenderDevice,
         texture::BevyDefault,
@@ -19,7 +19,7 @@ use bevy::{
 
 use crate::{
     utils::{
-        bind_group_layout_types::{storage_buffer, texture_2d, texture_depth_2d, uniform_buffer},
+        bind_group_layout_types::{storage_buffer, texture_depth_2d, uniform_buffer},
         BindingResouceExt, RenderDeviceExt, RenderPipelineDescriptorBuilder,
     },
     OitCamera, OitDepthBindGroup, OitLayersBindGroup, OitMaterialUniform,
@@ -115,6 +115,7 @@ pub struct OitBuffers(
 pub struct OitRenderViewBindGroup(pub BindGroup);
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 pub fn queue_bind_groups(
     mut commands: Commands,
     pipeline: Res<OitDrawPipeline>,
@@ -124,8 +125,6 @@ pub fn queue_bind_groups(
     buffers: Res<OitBuffers>,
     view_uniforms: Res<ViewUniforms>,
     depth_textures: Query<(Entity, &ViewDepthTexture), (With<Camera3d>, With<OitCamera>)>,
-    cameras: Query<(&ViewDepthTexture, &Camera3d, Option<&OitCamera>)>,
-    has_oit: Query<&OitCamera>,
 ) {
     let material_uniforms_bind_group = render_device.create_bind_group_ext(
         "oit_material_bind_group",

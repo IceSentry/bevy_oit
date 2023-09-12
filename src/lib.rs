@@ -1,3 +1,10 @@
+#![warn(clippy::pedantic)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::cast_possible_wrap)]
+
 use bevy::{
     asset::load_internal_asset,
     core_pipeline::core_3d::{self, CORE_3D},
@@ -46,9 +53,11 @@ mod node;
 mod pipeline;
 mod utils;
 
+#[allow(clippy::unreadable_literal)]
 pub const OIT_DRAW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5948657369088000);
 
+#[allow(clippy::unreadable_literal)]
 pub const OIT_RENDER_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1612685519093760);
 
@@ -284,7 +293,7 @@ fn queue_mesh_oit_phase(
 ) {
     let draw_function = draw_functions.read().id::<DrawOit>();
 
-    for (view, visible_entities, mut oit_phase) in views.iter_mut() {
+    for (view, visible_entities, mut oit_phase) in &mut views {
         let view_matrix = view.transform.compute_matrix();
         let inv_view_row_2 = view_matrix.inverse().row(2);
 
@@ -324,7 +333,9 @@ fn prepare_buffers(
     mut buffers: ResMut<OitBuffers>,
 ) {
     for (entity, camera) in &cameras {
-        let Some(size) = camera.physical_target_size else { continue; };
+        let Some(size) = camera.physical_target_size else {
+            continue;
+        };
 
         let size = (size.x * size.y) as usize;
 

@@ -25,6 +25,7 @@ pub fn color_target(blend: Option<BlendState>) -> ColorTargetState {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 pub fn fragment_state(
     shader: Handle<Shader>,
     entry_point: &'static str,
@@ -214,6 +215,7 @@ pub mod bind_group_layout_types {
         }
     }
 
+    #[allow(unused)]
     pub fn texture_2d(sample_type: TextureSampleType, multisampled: bool) -> BindingType {
         BindingType::Texture {
             sample_type,
