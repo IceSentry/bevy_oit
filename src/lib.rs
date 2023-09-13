@@ -44,8 +44,7 @@ use pipeline::{OitBuffers, OitRenderPipeline};
 
 use crate::{node::OitNode, pipeline::OitDrawPipeline};
 
-pub const WINDOW_WIDTH: usize = 1280;
-pub const WINDOW_HEIGHT: usize = 720;
+// TODO make this runtime configurable
 pub const OIT_LAYERS: usize = 16;
 
 mod material;

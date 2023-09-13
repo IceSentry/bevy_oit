@@ -2,7 +2,7 @@ use bevy::{
     prelude::{shape::UVSphere, *},
     reflect::{TypePath, TypeUuid},
     render::render_resource::{AsBindGroup, ShaderRef, TextureUsages},
-    window::{PresentMode, WindowResolution},
+    window::PresentMode,
 };
 use bevy_oit::{OitCamera, OitMaterial, OitMaterialMeshBundle, OitPlugin};
 use utils::camera_controller::{CameraController, CameraControllerPlugin};
@@ -14,11 +14,6 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
-                    resolution: WindowResolution::new(
-                        bevy_oit::WINDOW_WIDTH as f32,
-                        bevy_oit::WINDOW_HEIGHT as f32,
-                    )
-                    .with_scale_factor_override(1.0),
                     present_mode: PresentMode::AutoNoVsync,
                     ..default()
                 }),
