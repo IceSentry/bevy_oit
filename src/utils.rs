@@ -307,6 +307,11 @@ impl RenderPipelineDescriptorBuilder {
         self
     }
 
+    pub fn multisample_state(mut self, state: MultisampleState) -> Self {
+        self.desc.multisample = state;
+        self
+    }
+
     pub fn build(self) -> RenderPipelineDescriptor {
         self.desc
     }

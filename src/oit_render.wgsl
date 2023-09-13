@@ -69,26 +69,19 @@ fn sort(screen_index: i32, buffer_size: i32) -> vec4<f32> {
 
     // resolve blend
     var final_color = vec4(0.0);
-    // let alpha = 0.1; // TODO should not be fixed
     for (var i = 0; i <= counter; i += 1) {
-    // for (var i = counter; i >= 0; i -= 1) {
-        let frag = fragment_list[i].r;
-        let color = unpack4x8unorm(frag);
-
+        let color = unpack4x8unorm(fragment_list[i].r);
         var base_color = vec4(color.rgb * color.a, color.a);
-        // let base_color = color;
-
-        // OVER operator using premultiplied alpha
-        // see: https://en.wikipedia.org/wiki/Alpha_compositing
-        var final_color_rgb = final_color.rgb;
-        final_color_rgb += (1.0 - final_color.a) * base_color.rgb;
-        final_color.a += (1.0 - final_color.a) * base_color.a;
-        final_color.r = final_color_rgb.r;
-        final_color.g = final_color_rgb.g;
-        final_color.b = final_color_rgb.b;
+        final_color = blend(final_color, base_color);
     }
-    // TODO consider blending with background manually
-    // final_color += (1.0 - final_color.a) * background;
 
     return final_color;
+}
+
+// OVER operator using premultiplied alpha
+// see: https://en.wikipedia.org/wiki/Alpha_compositing
+fn blend(color_a: vec4<f32>, color_b: vec4<f32>) -> vec4<f32> {
+    let final_color = color_a.rgb + (1.0 - color_a.a) * color_b.rgb;
+    let alpha = color_a.a + (1.0 - color_a.a) * color_b.a;
+    return vec4(final_color.rgb, alpha);
 }

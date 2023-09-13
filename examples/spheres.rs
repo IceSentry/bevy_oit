@@ -13,7 +13,7 @@ mod utils;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa::Off)
+        .insert_resource(Msaa::Sample2)
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {

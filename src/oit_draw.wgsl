@@ -20,8 +20,13 @@ var<storage, read_write> layers: array<vec2<u32>>;
 @group(3) @binding(1)
 var<storage, read_write> layer_ids: array<atomic<i32>>;
 
+#ifdef MULTISAMPLED
+@group(4) @binding(0)
+var depth_texture: texture_depth_multisampled_2d;
+#else
 @group(4) @binding(0)
 var depth_texture: texture_depth_2d;
+#endif // MULTISAMPLED
 
 const oit_layers: i32 = #{OIT_LAYERS};
 
@@ -32,6 +37,7 @@ struct Vertex {
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
+
     @location(0) world_position: vec4<f32>,
     @location(1) world_normal: vec3<f32>,
 }
@@ -57,7 +63,25 @@ fn mesh_normal_local_to_world(mesh: Mesh, vertex_normal: vec3<f32>) -> vec3<f32>
 }
 
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(
+#ifdef MSAA
+    @builtin(sample_mask) sample_mask: u32,
+#endif // MSAA
+    in: VertexOutput
+) -> @location(0) vec4<f32> {
+
+// This feels super hacky
+// sample_mask contains a bit for the sample index
+// so if MSAA == 8 then any bit between 0 and 8 bits might be enabled
+//
+// We only want to render 1 sample so we skip any samples that isn't the last one
+#ifdef MSAA
+    let msaa_mask = 1u << (#{MSAA}u - 1u);
+    if sample_mask < msaa_mask {
+        discard;
+    }
+#endif
+
     // manual depth testing
     // TODO figure out why early z depth test wasn't triggered
     let depth_sample = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
@@ -81,7 +105,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
         // tail blend
         // TODO this doesn't seem to work correctly right now
-        // return vec4(color, material.base_color.a);
+        // return color;
         discard;
     }
 
