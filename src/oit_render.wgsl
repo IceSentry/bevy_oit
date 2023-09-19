@@ -33,12 +33,11 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     }
 
     // show layer density
-    // let counter = atomicLoad(&layer_ids[screen_index]);
     // clear(screen_index);
     // if counter == 0 {
     //     discard;
     // } else {
-    //     let x = f32(counter) / 8.0;
+    //     let x = f32(counter) / f32(oit_layers);
     //     return vec4(x, x, x, 0.1);
     // }
 }

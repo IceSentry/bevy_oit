@@ -89,6 +89,7 @@ fn fragment(
         discard;
     }
 
+    // TODO this shading should be user customizable
     let color = gooch_shading(
         material.base_color,
         in.world_normal,
