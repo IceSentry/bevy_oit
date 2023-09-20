@@ -122,6 +122,7 @@ pub trait BindingResouceExt {
 }
 impl<T: ShaderType + WriteInto> BindingResouceExt for UniformBuffer<T> {
     #[inline]
+    #[track_caller]
     fn bind_at(&self, binding_index: u32) -> BindGroupEntry {
         BindGroupEntry {
             binding: binding_index,
@@ -132,12 +133,14 @@ impl<T: ShaderType + WriteInto> BindingResouceExt for UniformBuffer<T> {
             ),
         }
     }
+    #[track_caller]
     fn bind(&self) -> BindGroupEntry {
         self.bind_at(u32::MAX)
     }
 }
 impl<T: ShaderType + WriteInto> BindingResouceExt for StorageBuffer<T> {
     #[inline]
+    #[track_caller]
     fn bind_at(&self, binding_index: u32) -> BindGroupEntry {
         BindGroupEntry {
             binding: binding_index,
@@ -148,12 +151,14 @@ impl<T: ShaderType + WriteInto> BindingResouceExt for StorageBuffer<T> {
             ),
         }
     }
+    #[track_caller]
     fn bind(&self) -> BindGroupEntry {
         self.bind_at(u32::MAX)
     }
 }
 impl BindingResouceExt for TextureView {
     #[inline]
+    #[track_caller]
     fn bind_at(&self, binding_index: u32) -> BindGroupEntry {
         BindGroupEntry {
             binding: binding_index,
@@ -162,12 +167,14 @@ impl BindingResouceExt for TextureView {
     }
 
     #[inline]
+    #[track_caller]
     fn bind(&self) -> BindGroupEntry {
         self.bind_at(u32::MAX)
     }
 }
 impl<T: ShaderType + WriteInto> BindingResouceExt for DynamicUniformBuffer<T> {
     #[inline]
+    #[track_caller]
     fn bind_at(&self, binding_index: u32) -> BindGroupEntry {
         BindGroupEntry {
             binding: binding_index,
@@ -180,6 +187,7 @@ impl<T: ShaderType + WriteInto> BindingResouceExt for DynamicUniformBuffer<T> {
     }
 
     #[inline]
+    #[track_caller]
     fn bind(&self) -> BindGroupEntry {
         self.bind_at(u32::MAX)
     }
