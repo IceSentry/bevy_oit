@@ -4,7 +4,10 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef, TextureUsages},
     window::PresentMode,
 };
-use bevy_oit::{OitCamera, OitMaterial, OitMaterialMeshBundle, OitPlugin};
+use bevy_oit::{
+    material::{OitMaterial, OitMaterialMeshBundle},
+    OitCamera, OitPlugin,
+};
 use utils::camera_controller::{CameraController, CameraControllerPlugin};
 
 mod utils;
@@ -35,6 +38,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut std_materials: ResMut<Assets<StandardMaterial>>,
+    mut oit_materials: ResMut<Assets<OitMaterial>>,
 ) {
     commands.spawn((
         Camera3dBundle {
@@ -84,9 +88,9 @@ fn setup(
         .insert(KeepMaterial);
     commands.spawn(OitMaterialMeshBundle {
         mesh: sphere_handle.clone(),
-        material: OitMaterial {
+        material: oit_materials.add(OitMaterial {
             base_color: Color::RED.with_a(0.5),
-        },
+        }),
         transform: Transform::from_xyz(x, 0., 0.),
         ..default()
     });
@@ -102,9 +106,9 @@ fn setup(
         .insert(KeepMaterial);
     commands.spawn(OitMaterialMeshBundle {
         mesh: sphere_handle.clone(),
-        material: OitMaterial {
+        material: oit_materials.add(OitMaterial {
             base_color: Color::RED.with_a(0.5),
-        },
+        }),
         transform: Transform::from_xyz(0., 0., 0.),
         ..default()
     });
@@ -121,9 +125,9 @@ fn setup(
         .insert(KeepMaterial);
     commands.spawn(OitMaterialMeshBundle {
         mesh: sphere_handle.clone(),
-        material: OitMaterial {
+        material: oit_materials.add(OitMaterial {
             base_color: Color::RED.with_a(0.5),
-        },
+        }),
         transform: Transform::from_xyz(x, 0., 0.),
         ..default()
     });
@@ -132,14 +136,15 @@ fn setup(
 fn mat(
     mut commands: Commands,
     q: Query<Entity, (With<Handle<StandardMaterial>>, Without<KeepMaterial>)>,
+    mut oit_materials: ResMut<Assets<OitMaterial>>,
 ) {
     for e in &q {
         commands
             .entity(e)
             .remove::<Handle<StandardMaterial>>()
-            .insert(OitMaterial {
+            .insert(oit_materials.add(OitMaterial {
                 base_color: Color::WHITE.with_a(0.1),
-            });
+            }));
     }
 }
 
@@ -163,9 +168,14 @@ impl Material for GoochMaterial {
 #[allow(clippy::type_complexity)]
 fn toggle_material(
     mut commands: Commands,
-    q: Query<(Entity, Option<&Handle<GoochMaterial>>, Option<&OitMaterial>)>,
+    q: Query<(
+        Entity,
+        Option<&Handle<GoochMaterial>>,
+        Option<&Handle<OitMaterial>>,
+    )>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut materials: ResMut<Assets<GoochMaterial>>,
+    mut gooch_materials: ResMut<Assets<GoochMaterial>>,
+    mut oit_materials: ResMut<Assets<OitMaterial>>,
     mut text: Query<&mut Text>,
     mut oit_enabled: Local<bool>,
 ) {
@@ -182,21 +192,23 @@ fn toggle_material(
 
     for (e, gooch, oit) in &q {
         if let Some(handle) = gooch {
-            if let Some(gooch) = materials.get(handle) {
+            if let Some(gooch) = gooch_materials.get(handle) {
                 commands
                     .entity(e)
                     .remove::<Handle<GoochMaterial>>()
-                    .insert(OitMaterial {
+                    .insert(oit_materials.add(OitMaterial {
                         base_color: gooch.base_color,
-                    });
+                    }));
             }
-        } else if let Some(oit) = oit {
-            commands
-                .entity(e)
-                .remove::<OitMaterial>()
-                .insert(materials.add(GoochMaterial {
-                    base_color: oit.base_color,
-                }));
+        } else if let Some(handle) = oit {
+            if let Some(oit) = oit_materials.get(handle) {
+                commands
+                    .entity(e)
+                    .remove::<Handle<OitMaterial>>()
+                    .insert(gooch_materials.add(GoochMaterial {
+                        base_color: oit.base_color,
+                    }));
+            }
         }
     }
 }

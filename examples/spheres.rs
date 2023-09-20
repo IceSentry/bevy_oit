@@ -3,7 +3,10 @@ use bevy::{
     render::render_resource::TextureUsages,
     window::PresentMode,
 };
-use bevy_oit::{OitCamera, OitMaterial, OitMaterialMeshBundle, OitPlugin};
+use bevy_oit::{
+    material::{OitMaterial, OitMaterialMeshBundle},
+    OitCamera, OitPlugin,
+};
 use utils::{
     camera_controller::{CameraController, CameraControllerPlugin},
     gooch_material::GoochMaterial,
@@ -37,6 +40,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<GoochMaterial>>,
+    mut oit_materials: ResMut<Assets<OitMaterial>>,
 ) {
     commands.spawn((
         Camera3dBundle {
@@ -66,25 +70,25 @@ fn setup(
     // oit material
     commands.spawn(OitMaterialMeshBundle {
         mesh: sphere_handle.clone(),
-        material: OitMaterial {
+        material: oit_materials.add(OitMaterial {
             base_color: Color::RED.with_a(alpha),
-        },
+        }),
         transform: Transform::from_translation(pos_a - offset),
         ..default()
     });
     commands.spawn(OitMaterialMeshBundle {
         mesh: sphere_handle.clone(),
-        material: OitMaterial {
+        material: oit_materials.add(OitMaterial {
             base_color: Color::GREEN.with_a(alpha),
-        },
+        }),
         transform: Transform::from_translation(pos_b - offset),
         ..default()
     });
     commands.spawn(OitMaterialMeshBundle {
         mesh: sphere_handle.clone(),
-        material: OitMaterial {
+        material: oit_materials.add(OitMaterial {
             base_color: Color::BLUE.with_a(alpha),
-        },
+        }),
         transform: Transform::from_translation(pos_c - offset),
         ..default()
     });

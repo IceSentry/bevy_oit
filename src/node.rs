@@ -40,8 +40,6 @@ impl ViewNode for OitNode {
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.view_entity();
-
         if render_phase.items.is_empty() {
             return Ok(());
         }
@@ -61,7 +59,7 @@ impl ViewNode for OitNode {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            render_phase.render(&mut render_pass, world, view_entity);
+            render_phase.render(&mut render_pass, world, graph.view_entity());
         }
 
         // render oit

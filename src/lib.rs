@@ -20,9 +20,7 @@ use bevy::{
     reflect::TypeUuid,
     render::{
         camera::ExtractedCamera,
-        extract_component::{
-            DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
-        },
+        extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
         render_asset::RenderAssets,
         render_graph::{RenderGraphApp, ViewNodeRunner},
         render_phase::{
@@ -40,14 +38,15 @@ use bevy::{
     },
     utils::FloatOrd,
 };
+use material::OitMaterial;
 use pipeline::{OitBuffers, OitRenderPipeline};
 
-use crate::{node::OitNode, pipeline::OitDrawPipeline};
+use crate::{material::OitMaterialPlugin, node::OitNode, pipeline::OitDrawPipeline};
 
 // TODO make this runtime configurable
 pub const OIT_LAYERS: usize = 16;
 
-mod material;
+pub mod material;
 mod node;
 mod pipeline;
 mod utils;
@@ -79,8 +78,11 @@ impl Plugin for OitPlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugins(UniformComponentPlugin::<OitMaterialUniform>::default())
-            .add_plugins(ExtractComponentPlugin::<OitCamera>::default());
+        app.add_plugins((
+            UniformComponentPlugin::<OitMaterialUniform>::default(),
+            ExtractComponentPlugin::<OitCamera>::default(),
+            OitMaterialPlugin,
+        ));
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -94,10 +96,7 @@ impl Plugin for OitPlugin {
             .add_systems(Render, prepare_buffers.in_set(RenderSet::Prepare));
 
         render_app
-            .add_systems(
-                ExtractSchedule,
-                (extract_render_phase, extract_oit_material_uniform),
-            )
+            .add_systems(ExtractSchedule, extract_render_phase)
             .add_systems(
                 Render,
                 (
@@ -155,24 +154,24 @@ impl CachedRenderPipelinePhaseItem for OitPhaseItem {
     }
 }
 
-#[derive(Resource, Deref)]
-pub(crate) struct OitMaterialUniformsBindGroup(pub(crate) BindGroup);
-
 struct SetOitMaterialBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOitMaterialBindGroup<I> {
-    type Param = SRes<OitMaterialUniformsBindGroup>;
+    type Param = SRes<RenderAssets<OitMaterial>>;
     type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<DynamicUniformIndex<OitMaterialUniform>>;
+    type ItemWorldQuery = Read<Handle<OitMaterial>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        mesh_index: ROQueryItem<'w, Self::ItemWorldQuery>,
-        bind_group: SystemParamItem<'w, '_, Self::Param>,
+        material_handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(I, bind_group.into_inner(), &[mesh_index.index()]);
+        let Some(material) = materials.into_inner().get(material_handle) else {
+            return RenderCommandResult::Failure;
+        };
+        pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
     }
 }
@@ -231,21 +230,6 @@ type DrawOit = (
     DrawMesh,
 );
 
-#[derive(Component, Clone, Copy, Default)]
-pub struct OitMaterial {
-    pub base_color: Color,
-}
-
-#[derive(Bundle, Clone, Default)]
-pub struct OitMaterialMeshBundle {
-    pub mesh: Handle<Mesh>,
-    pub material: OitMaterial,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub visibility: Visibility,
-    pub computed_visibility: ComputedVisibility,
-}
-
 #[derive(Component, ShaderType, Clone, Copy)]
 pub struct OitMaterialUniform {
     base_color: Color,
@@ -264,17 +248,6 @@ fn extract_render_phase(
     }
 }
 
-fn extract_oit_material_uniform(
-    mut commands: Commands,
-    oit_materials: Extract<Query<(Entity, &OitMaterial)>>,
-) {
-    for (entity, material) in &oit_materials {
-        commands.get_or_spawn(entity).insert(OitMaterialUniform {
-            base_color: material.base_color,
-        });
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 fn queue_mesh_oit_phase(
     draw_functions: Res<DrawFunctions<OitPhaseItem>>,
@@ -282,7 +255,7 @@ fn queue_mesh_oit_phase(
     mut pipelines: ResMut<SpecializedMeshPipelines<OitDrawPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    meshes: Query<(Entity, &Handle<Mesh>, &MeshUniform), With<OitMaterialUniform>>,
+    meshes: Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Handle<OitMaterial>>>,
     mut views: Query<(
         &ExtractedView,
         &mut VisibleEntities,
