@@ -48,11 +48,11 @@ fn fragment(
         view.world_position,
     );
 
-    oit_draw_end(in.position, color);
+    return oit_draw_end(in.position, color);
 
     // we don't need to actually output anything, but early depth test doesn't seem to work
     // with fragment shaders with no output
-    return vec4(0.0);
+    // return vec4(0.0);
 }
 
 // Interpolates between a warm color and a cooler color based on the angle
@@ -95,7 +95,7 @@ fn oit_draw_start(position: vec4f, sample_mask: u32) {
 #endif
 }
 
-fn oit_draw_end(position: vec4f, color: vec4f) {
+fn oit_draw_end(position: vec4f, color: vec4f) -> vec4<f32> {
     let screen_index = i32(floor(position.x) + floor(position.y) * view.viewport.z);
     let buffer_size = i32(view.viewport.z * view.viewport.w);
 
@@ -107,7 +107,8 @@ fn oit_draw_end(position: vec4f, color: vec4f) {
         // tail blend
         // TODO this doesn't seem to work correctly right now
         // return color;
-        discard;
+        // discard;
+        return vec4(0.0);
     }
 
     let layer_index = screen_index + layer_id * buffer_size;
@@ -116,5 +117,5 @@ fn oit_draw_end(position: vec4f, color: vec4f) {
     layers[layer_index] = vec2(packed_color, depth);
 
     // we don't want to actually render anything here
-    discard;
+    return vec4(0.0);
 }
