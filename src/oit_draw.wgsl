@@ -1,34 +1,7 @@
 #import bevy_pbr::mesh_functions as mesh_functions
-#import bevy_render::view View
 #import bevy_pbr::mesh_types Mesh
 
-@group(0) @binding(0)
-var<uniform> view: View;
-
-struct OitMaterial {
-    base_color: vec4<f32>,
-};
-@group(1) @binding(0)
-var<uniform> material: OitMaterial;
-
-@group(2) @binding(0)
-var<uniform> mesh: Mesh;
-
-@group(3) @binding(0)
-var<storage, read_write> layers: array<vec2<u32>>;
-
-@group(3) @binding(1)
-var<storage, read_write> layer_ids: array<atomic<i32>>;
-
-#ifdef MULTISAMPLED
-@group(4) @binding(0)
-var depth_texture: texture_depth_multisampled_2d;
-#else
-@group(4) @binding(0)
-var depth_texture: texture_depth_2d;
-#endif // MULTISAMPLED
-
-const oit_layers: i32 = #{OIT_LAYERS};
+#import bevy_oit::oit_draw_bindings view, material, mesh, layers, layer_ids, depth_texture, oit_layers
 
 struct Vertex {
     @location(0) position: vec3<f32>,
@@ -37,7 +10,6 @@ struct Vertex {
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
-
     @location(0) world_position: vec4<f32>,
     @location(1) world_normal: vec3<f32>,
 }
@@ -64,30 +36,10 @@ fn mesh_normal_local_to_world(mesh: Mesh, vertex_normal: vec3<f32>) -> vec3<f32>
 
 @fragment
 fn fragment(
-#ifdef MSAA
     @builtin(sample_mask) sample_mask: u32,
-#endif // MSAA
     in: VertexOutput
-) -> @location(0) vec4<f32> {
-
-// This feels super hacky
-// sample_mask contains a bit for the sample index
-// so if MSAA == 8 then any bit between 0 and 8 bits might be enabled
-//
-// We only want to render 1 sample so we skip any samples that isn't the last one
-#ifdef MSAA
-    let msaa_mask = 1u << (#{MSAA}u - 1u);
-    if sample_mask < msaa_mask {
-        discard;
-    }
-#endif
-
-    // manual depth testing
-    // TODO figure out why early z depth test wasn't triggered
-    let depth_sample = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
-    if in.position.z < depth_sample {
-        discard;
-    }
+) {
+    oit_draw_start(in.position, sample_mask);
 
     // TODO this shading should be user customizable
     let color = gooch_shading(
@@ -96,27 +48,7 @@ fn fragment(
         view.world_position,
     );
 
-    let screen_index = i32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
-    let buffer_size = i32(view.viewport.z * view.viewport.w);
-
-    var layer_id = atomicAdd(&layer_ids[screen_index], 1);
-    if layer_id >= oit_layers {
-        atomicStore(&layer_ids[screen_index], oit_layers);
-        layer_id = oit_layers;
-
-        // tail blend
-        // TODO this doesn't seem to work correctly right now
-        // return color;
-        discard;
-    }
-
-    let layer_index = screen_index + layer_id * buffer_size;
-    let packed_color = pack4x8unorm(color);
-    let depth = bitcast<u32>(in.position.z);
-    layers[layer_index] = vec2(packed_color, depth);
-
-    // we don't want to actually render anything here
-    discard;
+    oit_draw_end(in.position, color);
 }
 
 // Interpolates between a warm color and a cooler color based on the angle
@@ -143,4 +75,49 @@ fn gooch_shading(color: vec4<f32>, world_normal: vec3<f32>, camera_position: vec
     let spec = gooch_color * specular_strength;
 
     return vec4(gooch_color.rgb + spec, color.a);
+}
+
+fn oit_draw_start(position: vec4f, sample_mask: u32) {
+    // This feels super hacky
+    // sample_mask contains a bit for the sample index
+    // so if MSAA == 8 then any bit between 0 and 8 bits might be enabled
+    //
+    // We only want to render 1 sample so we skip any samples that isn't the last one
+#ifdef MSAA
+    let msaa_mask = 1u << (#{MSAA}u - 1u);
+    if sample_mask < msaa_mask {
+        discard;
+    }
+#endif
+
+    // manual depth testing
+    // TODO figure out why early z depth test wasn't triggered
+    let depth_sample = textureLoad(depth_texture, vec2i(position.xy), 0);
+    if position.z < depth_sample {
+        discard;
+    }
+}
+
+fn oit_draw_end(position: vec4f, color: vec4f) {
+    let screen_index = i32(floor(position.x) + floor(position.y) * view.viewport.z);
+    let buffer_size = i32(view.viewport.z * view.viewport.w);
+
+    var layer_id = atomicAdd(&layer_ids[screen_index], 1);
+    if layer_id >= oit_layers {
+        atomicStore(&layer_ids[screen_index], oit_layers);
+        layer_id = oit_layers;
+
+        // tail blend
+        // TODO this doesn't seem to work correctly right now
+        // return color;
+        discard;
+    }
+
+    let layer_index = screen_index + layer_id * buffer_size;
+    let packed_color = pack4x8unorm(color);
+    let depth = bitcast<u32>(position.z);
+    layers[layer_index] = vec2(packed_color, depth);
+
+    // we don't want to actually render anything here
+    discard;
 }

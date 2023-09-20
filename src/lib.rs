@@ -56,6 +56,10 @@ pub const OIT_DRAW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5948657369088000);
 
 #[allow(clippy::unreadable_literal)]
+pub const OIT_DRAW_BINDINGS_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3431342664581120);
+
+#[allow(clippy::unreadable_literal)]
 pub const OIT_RENDER_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1612685519093760);
 
@@ -69,6 +73,12 @@ impl Plugin for OitPlugin {
             app,
             OIT_DRAW_SHADER_HANDLE,
             "oit_draw.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            OIT_DRAW_BINDINGS_SHADER_HANDLE,
+            "oit_draw_bindings.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
