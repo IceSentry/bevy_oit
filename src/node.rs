@@ -5,9 +5,12 @@ use bevy::{
         camera::ExtractedCamera,
         render_graph::{NodeRunError, RenderGraphContext, ViewNode},
         render_phase::RenderPhase,
-        render_resource::{LoadOp, Operations, PipelineCache, RenderPassDescriptor},
+        render_resource::{
+            LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment,
+            RenderPassDescriptor,
+        },
         renderer::RenderContext,
-        view::{ViewTarget, ViewUniformOffset},
+        view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
     },
 };
 
@@ -29,13 +32,14 @@ impl ViewNode for OitNode {
         &'static ViewTarget,
         &'static OitLayersBindGroup,
         &'static ViewUniformOffset,
+        &'static ViewDepthTexture,
     );
 
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, render_phase, view_target, oit_layers_bind_group, view_uniform): QueryItem<
+        (camera, render_phase, view_target, oit_layers_bind_group, view_uniform, depth): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -52,7 +56,14 @@ impl ViewNode for OitNode {
                     load: LoadOp::Load,
                     store: true,
                 }))],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: &depth.view,
+                    depth_ops: Some(Operations {
+                        load: LoadOp::Load,
+                        store: false,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
             if let Some(viewport) = camera.viewport.as_ref() {

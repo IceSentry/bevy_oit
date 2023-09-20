@@ -208,35 +208,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOitLayersBindGroup<I>
     }
 }
 
-#[derive(Component, Deref)]
-pub struct OitDepthBindGroup(pub BindGroup);
-
-struct SetOitDepthBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOitDepthBindGroup<I> {
-    type Param = ();
-    type ViewWorldQuery = &'static OitDepthBindGroup;
-    type ItemWorldQuery = ();
-
-    #[inline]
-    fn render<'w>(
-        _item: &P,
-        bind_group: ROQueryItem<'w, Self::ViewWorldQuery>,
-        _mesh_index: ROQueryItem<'w, Self::ItemWorldQuery>,
-        _param: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        pass.set_bind_group(I, bind_group, &[]);
-        RenderCommandResult::Success
-    }
-}
-
 type DrawOit = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetOitMaterialBindGroup<1>,
     SetMeshBindGroup<2>,
     SetOitLayersBindGroup<3>,
-    SetOitDepthBindGroup<4>,
     DrawMesh,
 );
 

@@ -1,7 +1,7 @@
 #import bevy_pbr::mesh_functions as mesh_functions
 #import bevy_pbr::mesh_types Mesh
 
-#import bevy_oit::oit_draw_bindings view, material, mesh, layers, layer_ids, depth_texture, oit_layers
+#import bevy_oit::oit_draw_bindings view, material, mesh, layers, layer_ids, oit_layers
 
 struct Vertex {
     @location(0) position: vec3<f32>,
@@ -38,7 +38,7 @@ fn mesh_normal_local_to_world(mesh: Mesh, vertex_normal: vec3<f32>) -> vec3<f32>
 fn fragment(
     @builtin(sample_mask) sample_mask: u32,
     in: VertexOutput
-) {
+) -> @location(0) vec4<f32> {
     oit_draw_start(in.position, sample_mask);
 
     // TODO this shading should be user customizable
@@ -49,6 +49,10 @@ fn fragment(
     );
 
     oit_draw_end(in.position, color);
+
+    // we don't need to actually output anything, but early depth test doesn't seem to work
+    // with fragment shaders with no output
+    return vec4(0.0);
 }
 
 // Interpolates between a warm color and a cooler color based on the angle
@@ -89,13 +93,6 @@ fn oit_draw_start(position: vec4f, sample_mask: u32) {
         discard;
     }
 #endif
-
-    // manual depth testing
-    // TODO figure out why early z depth test wasn't triggered
-    let depth_sample = textureLoad(depth_texture, vec2i(position.xy), 0);
-    if position.z < depth_sample {
-        discard;
-    }
 }
 
 fn oit_draw_end(position: vec4f, color: vec4f) {

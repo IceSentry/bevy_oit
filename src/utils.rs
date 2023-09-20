@@ -232,6 +232,7 @@ pub mod bind_group_layout_types {
         }
     }
 
+    #[allow(unused)]
     pub fn texture_depth_2d(multisampled: bool) -> BindingType {
         BindingType::Texture {
             sample_type: TextureSampleType::Depth,
