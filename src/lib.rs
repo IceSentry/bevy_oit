@@ -44,7 +44,7 @@ use pipeline::{OitBuffers, OitRenderPipeline};
 use crate::{material::OitMaterialPlugin, node::OitNode, pipeline::OitDrawPipeline};
 
 // TODO make this runtime configurable
-pub const OIT_LAYERS: usize = 16;
+pub const OIT_LAYERS: usize = 8;
 
 pub mod material;
 mod node;

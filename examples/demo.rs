@@ -122,7 +122,7 @@ fn update_scene_material(
             .entity(e)
             .remove::<Handle<StandardMaterial>>()
             .insert(oit_materials.add(OitMaterial {
-                base_color: Color::WHITE.with_a(0.5),
+                base_color: Color::WHITE.with_a(0.25),
             }));
     }
 }
