@@ -46,8 +46,7 @@ fn fragment(
         view.world_position,
     );
 
-    oit_draw(in.position, color, sample_mask);
-    return vec4(0.0);
+    return oit_draw(in.position, color, sample_mask);
 }
 
 // Interpolates between a warm color and a cooler color based on the angle
@@ -76,7 +75,7 @@ fn gooch_shading(color: vec4<f32>, world_normal: vec3<f32>, camera_position: vec
     return vec4(gooch_color.rgb + spec, color.a);
 }
 
-fn oit_draw(position: vec4f, color: vec4f, sample_mask: u32) {
+fn oit_draw(position: vec4f, color: vec4f, sample_mask: u32) -> vec4f {
     // This feels super hacky
     // sample_mask contains a bit for the current sample index
     // so if MSAA == 8 then any bit between 0 and 8 bits might be enabled
@@ -85,7 +84,7 @@ fn oit_draw(position: vec4f, color: vec4f, sample_mask: u32) {
 #ifdef MSAA
     let msaa_mask = 1u << (#{MSAA}u - 1u);
     if sample_mask < msaa_mask {
-        return;
+        return vec4(0.0);
     }
 #endif
 
@@ -95,10 +94,16 @@ fn oit_draw(position: vec4f, color: vec4f, sample_mask: u32) {
     var layer_id = atomicAdd(&layer_ids[screen_index], 1);
     if layer_id >= oit_layers {
         atomicStore(&layer_ids[screen_index], oit_layers);
-    } else {
-        let layer_index = screen_index + layer_id * buffer_size;
-        let packed_color = pack4x8unorm(color);
-        let depth = bitcast<u32>(position.z);
-        layers[layer_index] = vec2(packed_color, depth);
+#ifdef TAIL_BLEND
+        return color;
+#else
+        return vec4(0.0);
+#endif
     }
+
+    let layer_index = screen_index + layer_id * buffer_size;
+    let packed_color = pack4x8unorm(color);
+    let depth = bitcast<u32>(position.z);
+    layers[layer_index] = vec2(packed_color, depth);
+    return vec4(0.0);
 }

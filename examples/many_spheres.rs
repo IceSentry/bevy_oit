@@ -7,6 +7,7 @@ use bevy_oit::{
     material::{OitMaterial, OitMaterialMeshBundle},
     OitCamera, OitPlugin,
 };
+use rand::Rng;
 use utils::{
     camera_controller::{CameraController, CameraControllerPlugin},
     gooch_material::GoochMaterial,
@@ -29,7 +30,7 @@ fn main() {
             OitPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_scene_material, toggle_material))
+        .add_systems(Update, toggle_material)
         .run();
 }
 
@@ -39,13 +40,11 @@ struct KeepMaterial;
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    asset_server: Res<AssetServer>,
     mut oit_materials: ResMut<Assets<OitMaterial>>,
 ) {
-    // camera
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 1.0, 5.0),
+            transform: Transform::from_xyz(0.0, 0.0, 30.0),
             camera_3d: Camera3d {
                 depth_texture_usages: (TextureUsages::RENDER_ATTACHMENT
                     | TextureUsages::TEXTURE_BINDING)
@@ -67,64 +66,35 @@ fn setup(
         },
     ));
 
-    // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1500.0,
-            shadows_enabled: true,
-            ..default()
-        },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
-
-    // dragon
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("dragon.glb#Scene0"),
-        ..default()
-    });
-
-    // Spheres
     let sphere_handle = meshes.add(UVSphere::default().into());
-    commands.spawn(OitMaterialMeshBundle {
-        mesh: sphere_handle.clone(),
-        material: oit_materials.add(OitMaterial {
-            base_color: Color::RED.with_a(0.75),
-        }),
-        transform: Transform::from_xyz(-1., 0., 0.),
-        ..default()
-    });
-    commands.spawn(OitMaterialMeshBundle {
-        mesh: sphere_handle.clone(),
-        material: oit_materials.add(OitMaterial {
-            base_color: Color::RED.with_a(0.5),
-        }),
-        transform: Transform::from_xyz(0., 0., 0.),
-        ..default()
-    });
-    commands.spawn(OitMaterialMeshBundle {
-        mesh: sphere_handle.clone(),
-        material: oit_materials.add(OitMaterial {
-            base_color: Color::RED.with_a(0.1),
-        }),
-        transform: Transform::from_xyz(1., 0., 0.),
-        ..default()
-    });
-}
-
-fn update_scene_material(
-    mut commands: Commands,
-    q: Query<Entity, (With<Handle<StandardMaterial>>, Without<KeepMaterial>)>,
-    mut oit_materials: ResMut<Assets<OitMaterial>>,
-) {
-    for e in &q {
-        commands
-            .entity(e)
-            .remove::<Handle<StandardMaterial>>()
-            .insert(oit_materials.add(OitMaterial {
-                base_color: Color::WHITE.with_a(0.25),
-            }));
+    let mut spheres = vec![];
+    let offset = 1.5;
+    let mut rng = rand::thread_rng();
+    let size = 10;
+    for x in 0..=size {
+        for y in 0..=size {
+            for z in 0..=size {
+                spheres.push(OitMaterialMeshBundle {
+                    mesh: sphere_handle.clone(),
+                    material: oit_materials.add(OitMaterial {
+                        base_color: Color::rgba(
+                            rng.gen_range(0.0..1.0),
+                            rng.gen_range(0.0..1.0),
+                            rng.gen_range(0.0..1.0),
+                            0.5,
+                        ),
+                    }),
+                    transform: Transform::from_xyz(
+                        (x as f32 - size as f32 / 2.0) * offset,
+                        (y as f32 - size as f32 / 2.0) * offset,
+                        (z as f32 - size as f32 / 2.0) * offset,
+                    ),
+                    ..default()
+                });
+            }
+        }
     }
+    commands.spawn_batch(spheres);
 }
 
 #[allow(clippy::type_complexity)]

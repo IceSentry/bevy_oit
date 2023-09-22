@@ -54,7 +54,7 @@ fn setup(
             ..default()
         },
         CameraController::default(),
-        OitCamera,
+        OitCamera::default(),
     ));
 
     let pos_a = Vec3::new(-0.5, 0.25, 0.0);

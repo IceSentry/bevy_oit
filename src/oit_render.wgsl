@@ -56,9 +56,10 @@ fn sort(screen_index: i32, buffer_size: i32) -> vec4<f32> {
     }
 
     // bubble sort
-    for (var i = counter; i >= 0; i -= 1){
+    for (var i = counter; i >= 0; i -= 1) {
         for (var j = 0; j < i; j += 1) {
             if bitcast<f32>(fragment_list[j].y) < bitcast<f32>(fragment_list[j + 1].y) {
+                // swap
                 let temp = fragment_list[j + 1];
                 fragment_list[j + 1] = fragment_list[j];
                 fragment_list[j] = temp;

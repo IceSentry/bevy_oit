@@ -39,7 +39,7 @@ use bevy::{
     utils::FloatOrd,
 };
 use material::OitMaterial;
-use pipeline::{OitBuffers, OitRenderPipeline};
+use pipeline::{OitBuffers, OitKey, OitRenderPipeline};
 
 use crate::{material::OitMaterialPlugin, node::OitNode, pipeline::OitDrawPipeline};
 
@@ -63,8 +63,11 @@ pub const OIT_DRAW_BINDINGS_SHADER_HANDLE: HandleUntyped =
 pub const OIT_RENDER_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1612685519093760);
 
-#[derive(Component, Clone, Copy, ExtractComponent)]
-pub struct OitCamera;
+#[derive(Component, Clone, Copy, ExtractComponent, Default)]
+pub struct OitCamera {
+    // TODO docs
+    pub tail_blend: bool,
+}
 
 pub struct OitPlugin;
 impl Plugin for OitPlugin {
@@ -150,7 +153,7 @@ impl PhaseItem for OitPhaseItem {
     }
 
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        FloatOrd(-self.distance)
     }
 
     fn draw_function(&self) -> DrawFunctionId {
@@ -245,6 +248,7 @@ fn queue_mesh_oit_phase(
     meshes: Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Handle<OitMaterial>>>,
     mut views: Query<(
         &ExtractedView,
+        &OitCamera,
         &mut VisibleEntities,
         &mut RenderPhase<OitPhaseItem>,
     )>,
@@ -252,7 +256,7 @@ fn queue_mesh_oit_phase(
 ) {
     let draw_function = draw_functions.read().id::<DrawOit>();
 
-    for (view, visible_entities, mut oit_phase) in &mut views {
+    for (view, oit_camera, visible_entities, mut oit_phase) in &mut views {
         let view_matrix = view.transform.compute_matrix();
         let inv_view_row_2 = view_matrix.inverse().row(2);
 
@@ -266,9 +270,14 @@ fn queue_mesh_oit_phase(
                 continue;
             };
 
-            let key = MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
-
-            let Ok(pipeline) = pipelines.specialize(&pipeline_cache, &pipeline, key, &mesh.layout)
+            let mesh_key =
+                MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
+            let oit_key = OitKey {
+                mesh_key,
+                tail_blend: oit_camera.tail_blend,
+            };
+            let Ok(pipeline) =
+                pipelines.specialize(&pipeline_cache, &pipeline, oit_key, &mesh.layout)
             else {
                 continue;
             };

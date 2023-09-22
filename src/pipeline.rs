@@ -58,18 +58,24 @@ impl FromWorld for OitDrawPipeline {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct OitKey {
+    pub mesh_key: MeshPipelineKey,
+    pub tail_blend: bool,
+}
+
 impl SpecializedMeshPipeline for OitDrawPipeline {
-    type Key = MeshPipelineKey;
+    type Key = OitKey;
     fn specialize(
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut desc = self.mesh_pipeline.specialize(key, layout)?;
+        let mut desc = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
 
         desc.label = Some("oit_draw_mesh_pipeline".into());
 
-        let mut layout = match key.msaa_samples() {
+        let mut layout = match key.mesh_key.msaa_samples() {
             1 => vec![self.mesh_pipeline.view_layout.clone()],
             _ => vec![self.mesh_pipeline.view_layout_multisampled.clone()],
         };
@@ -77,10 +83,13 @@ impl SpecializedMeshPipeline for OitDrawPipeline {
         layout.push(self.mesh_pipeline.mesh_layouts.model_only.clone());
         layout.push(self.oit_layers_bind_group_layout.clone());
 
-        let defs = vec![
+        let mut defs = vec![
             ShaderDefVal::Int("OIT_LAYERS".to_string(), OIT_LAYERS as i32),
-            ShaderDefVal::UInt("MSAA".to_string(), key.msaa_samples()),
+            ShaderDefVal::UInt("MSAA".to_string(), key.mesh_key.msaa_samples()),
         ];
+        if key.tail_blend {
+            defs.push(ShaderDefVal::from("TAIL_BLEND".to_string()));
+        }
 
         desc.layout = layout;
         desc.vertex.shader = OIT_DRAW_SHADER_HANDLE.typed();
@@ -100,7 +109,7 @@ impl SpecializedMeshPipeline for OitDrawPipeline {
             bias: DepthBiasState::default(),
         });
         desc.multisample = MultisampleState {
-            count: key.msaa_samples(),
+            count: key.mesh_key.msaa_samples(),
             mask: !0,
             // TODO investigate how to use this for OIT
             alpha_to_coverage_enabled: false,

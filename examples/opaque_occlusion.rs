@@ -52,7 +52,7 @@ fn setup(
             ..default()
         },
         CameraController::default(),
-        OitCamera,
+        OitCamera::default(),
     ));
 
     commands.spawn(TextBundle::from_section(
